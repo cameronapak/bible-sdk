@@ -34,6 +34,8 @@ input {
   outline: none;
   transition: color 0.15s, box-shadow 0.15s;
 }
+/* iOS Safari zooms the page into a focused field whose text is under 16px. */
+@media (pointer: coarse) { input { font-size: 16px; } }
 input:focus-visible {
   border-color: var(--ring, Highlight);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring, Highlight) 50%, transparent);
@@ -212,9 +214,21 @@ export class ScripturePassageInput extends HTMLElement {
     });
     // Keep focus in the field while the pointer picks an option.
     this.list.addEventListener("pointerdown", (event) => event.preventDefault());
-    this.list.addEventListener("click", (event) => {
+    const pick = (event: Event) => {
       const option = (event.target as Element).closest<HTMLElement>("[role=option]:not([aria-disabled])");
       if (option) this.accept(this.suggestions[Number(option.dataset.index)]);
+    };
+    this.list.addEventListener("click", pick);
+    // iOS Safari moves focus on the mouse events it fakes after a tap, which pointerdown can't
+    // stop, so the field blurs and the list closes before the click. A tap picks on touchend
+    // instead, and cancelling it skips those mouse events. A drag scrolls the list and picks nothing.
+    let tapStart: Touch | undefined;
+    this.list.addEventListener("touchstart", (event) => (tapStart = event.touches[0]), { passive: true });
+    this.list.addEventListener("touchend", (event) => {
+      const end = event.changedTouches[0];
+      if (!tapStart || !end || Math.hypot(end.clientX - tapStart.clientX, end.clientY - tapStart.clientY) > 10) return;
+      event.preventDefault();
+      pick(event);
     });
     // A <label for> pointing at this element focuses the field. Clicks inside the shadow root
     // also target the host, so only a click on the host itself counts.
