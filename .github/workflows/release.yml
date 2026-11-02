@@ -52,6 +52,10 @@ jobs:
         with:
           # Also bumps the pinned CDN URLs in the docs to the new version.
           script: pnpm version-packages
+          # The GitHub API mode pushes a temporary changesets-ghcommit-temp/* branch first.
+          # Cloudflare starts a preview build for it, then cancels it when the branch is
+          # deleted, which marks the commit on main as failed. The Git CLI pushes directly.
+          push-with-git-cli: true
 
   publish:
     if: needs.select-mode.outputs.mode == 'publish'
