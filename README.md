@@ -80,6 +80,18 @@ si-passage {
 | `--scripture-font-family` | Untitled Serif | Font of the Bible text. |
 | `--scripture-max-width` | `32rem` | Line length of the text, reference, and copyright. |
 
+The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `si-passage::part(citation) { font-style: italic; }`.
+
+| Part | What it is |
+| --- | --- |
+| `text` | The Bible text. |
+| `citation` | The reference and version. |
+| `version` | The version abbreviation inside the citation. |
+| `attribution` | The copyright line. |
+| `quote` | The block quote in the `quote` layout. |
+| `loader` | The spinner while the text loads. |
+| `error` | The message when the text can't load. |
+
 | Event | Detail | When |
 | --- | --- | --- |
 | `scripture-load` | `passageId`, `yvpBibleVersionId`, `yvpBibleVersion` | The passage is on screen. |
@@ -107,6 +119,8 @@ Readers can type a book, chapter, or verse, including typos like "Roman 8". The 
 | Event | Detail | When |
 | --- | --- | --- |
 | `change` | `passageId`, `label` | The reader picks a passage or clears the field. `passageId` is empty when cleared. |
+
+The field renders in a shadow root. It reads the page's `--input`, `--ring`, `--radius`, `--popover`, `--accent`, and `--font-sans` tokens when they exist. To restyle it further, use its parts: `input`, `listbox`, `option`, and `count`, such as `si-passage-input::part(input) { height: 2.5rem; }`.
 
 To show the picked passage:
 

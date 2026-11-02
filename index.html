@@ -191,6 +191,26 @@
           </tbody>
         </table>
         </div>
+        <p>
+          The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose,
+          use its part, such as <code>si-passage::part(citation) { font-style: italic; }</code>.
+        </p>
+        <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Part</th><th scope="col">What it is</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>text</code></td><td>The Bible text.</td></tr>
+            <tr><td><code>citation</code></td><td>The reference and version.</td></tr>
+            <tr><td><code>version</code></td><td>The version abbreviation inside the citation.</td></tr>
+            <tr><td><code>attribution</code></td><td>The copyright line.</td></tr>
+            <tr><td><code>quote</code></td><td>The block quote in the <code>quote</code> layout.</td></tr>
+            <tr><td><code>loader</code></td><td>The spinner while the text loads.</td></tr>
+            <tr><td><code>error</code></td><td>The message when the text can't load.</td></tr>
+          </tbody>
+        </table>
+        </div>
         <div class="table-scroll">
         <table>
           <thead>
@@ -244,6 +264,12 @@
           </tbody>
         </table>
         </div>
+        <p>
+          The field renders in a shadow root. It reads the page's <code>--input</code>, <code>--ring</code>,
+          <code>--radius</code>, <code>--popover</code>, <code>--accent</code>, and <code>--font-sans</code> tokens when
+          they exist. To restyle it further, use its parts: <code>input</code>, <code>listbox</code>, <code>option</code>,
+          and <code>count</code>, such as <code>si-passage-input::part(input) { height: 2.5rem; }</code>.
+        </p>
       </section>
 
       <section class="stack" id="javascript">
