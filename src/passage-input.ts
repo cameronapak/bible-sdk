@@ -13,18 +13,19 @@ import {
 
 export const PASSAGE_INPUT_TAG = "si-passage-input";
 
-// Light DOM, so page styles reach the input. Page frameworks often skip inputs with a role
-// (Sensible UI does), so the combobox gets plain input styles that read the same tokens.
-// :where() keeps them easy to override.
+// Shadow DOM, so page CSS can't restyle the field or its list. The wrapper resets what the
+// host inherits. The field reads the page's design tokens (--input, --ring, --radius, and
+// friends), which inherit into the shadow root, and pages restyle it with ::part().
 const STYLES = `
-${PASSAGE_INPUT_TAG} { display: block; position: relative; }
-:where(${PASSAGE_INPUT_TAG}) > input {
+:host { display: block; position: relative; }
+.root { all: initial; display: block; position: relative; color: inherit; font: 0.875rem/1.5 var(--font-sans, system-ui, sans-serif); }
+input {
   box-sizing: border-box;
   width: 100%;
   height: 2.25rem;
+  margin: 0;
   padding: 0.25rem 0.75rem;
   font: inherit;
-  font-size: 0.875rem;
   color: inherit;
   background: none;
   border: 1px solid var(--input, color-mix(in srgb, currentColor 20%, transparent));
@@ -33,15 +34,13 @@ ${PASSAGE_INPUT_TAG} { display: block; position: relative; }
   outline: none;
   transition: color 0.15s, box-shadow 0.15s;
 }
-:where(${PASSAGE_INPUT_TAG}) > input:focus-visible {
+input:focus-visible {
   border-color: var(--ring, Highlight);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring, Highlight) 50%, transparent);
 }
-:where(${PASSAGE_INPUT_TAG}) > input[aria-invalid="true"] {
-  border-color: var(--destructive, #dc2626);
-}
-:where(${PASSAGE_INPUT_TAG}) > input:disabled { cursor: not-allowed; opacity: 0.5; }
-:where(${PASSAGE_INPUT_TAG}) > [role="listbox"] {
+input[aria-invalid="true"] { border-color: var(--destructive, #dc2626); }
+input:disabled { cursor: not-allowed; opacity: 0.5; }
+[role="listbox"] {
   position: absolute;
   inset: calc(100% + 4px) 0 auto;
   z-index: 50;
@@ -51,15 +50,14 @@ ${PASSAGE_INPUT_TAG} { display: block; position: relative; }
   padding: 4px;
   overflow-y: auto;
   list-style: none;
-  font-size: 0.875rem;
   color: var(--popover-foreground, inherit);
   background: var(--popover, Canvas);
   border: 1px solid var(--border, color-mix(in srgb, currentColor 15%, transparent));
   border-radius: var(--radius, 0.625rem);
   box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.2);
 }
-:where(${PASSAGE_INPUT_TAG}) > [role="listbox"][hidden] { display: none; }
-:where(${PASSAGE_INPUT_TAG}) [role="option"] > .si-passage-count {
+[role="listbox"][hidden] { display: none; }
+[role="option"] > .si-passage-count {
   /* The label wraps before the count does. */
   flex-shrink: 0;
   white-space: nowrap;
@@ -67,7 +65,7 @@ ${PASSAGE_INPUT_TAG} { display: block; position: relative; }
   font-size: 0.75rem;
   color: var(--muted-foreground, color-mix(in srgb, currentColor 60%, transparent));
 }
-:where(${PASSAGE_INPUT_TAG}) [role="option"] {
+[role="option"] {
   /* Baseline alignment keeps the smaller count on the label's line. */
   display: flex;
   align-items: baseline;
@@ -76,15 +74,15 @@ ${PASSAGE_INPUT_TAG} { display: block; position: relative; }
   border-radius: calc(var(--radius, 0.625rem) - 4px);
   cursor: default;
 }
-:where(${PASSAGE_INPUT_TAG}) [role="option"][aria-selected="true"] {
+[role="option"][aria-selected="true"] {
   color: var(--accent-foreground, inherit);
   background: var(--accent, color-mix(in srgb, currentColor 10%, transparent));
 }
-:where(${PASSAGE_INPUT_TAG}) [role="option"][aria-disabled="true"] {
+[role="option"][aria-disabled="true"] {
   color: var(--muted-foreground, color-mix(in srgb, currentColor 60%, transparent));
 }
 @media (hover: hover) and (pointer: fine) {
-  :where(${PASSAGE_INPUT_TAG}) [role="option"]:not([aria-disabled]):hover {
+  [role="option"]:not([aria-disabled]):hover {
     background: var(--accent, color-mix(in srgb, currentColor 10%, transparent));
   }
 }`;
@@ -162,6 +160,7 @@ export type PassageInputDetail = { passageId: string; label: string };
  * A text input for a Bible passage. Typing "Roman 8" suggests Romans 8, and the element's
  * `value` is the passage ID, such as "ROM.8" or "ROM.8.28-30". It submits with a form under
  * `name`, and fires `change` with `detail: { passageId, label }` when the passage changes.
+ * Parts: `input`, `listbox`, `option`, `count`.
  */
 export class ScripturePassageInput extends HTMLElement {
   static formAssociated = true;
@@ -176,6 +175,14 @@ export class ScripturePassageInput extends HTMLElement {
 
   constructor() {
     super();
+    const root = document.createElement("div");
+    root.className = "root";
+    const style = document.createElement("style");
+    style.textContent = STYLES;
+    root.append(this.input, this.list);
+    this.attachShadow({ mode: "open" }).append(style, root);
+    this.input.setAttribute("part", "input");
+    this.list.setAttribute("part", "listbox");
     const id = `${PASSAGE_INPUT_TAG}-${++ids}`;
     Object.assign(this.input, { type: "text", autocomplete: "off", spellcheck: false });
     this.input.setAttribute("role", "combobox");
@@ -209,20 +216,12 @@ export class ScripturePassageInput extends HTMLElement {
       const option = (event.target as Element).closest<HTMLElement>("[role=option]:not([aria-disabled])");
       if (option) this.accept(this.suggestions[Number(option.dataset.index)]);
     });
-    // A <label for> pointing at this element focuses the field.
-    this.addEventListener("click", (event) => event.target === this && this.input.focus());
+    // A <label for> pointing at this element focuses the field. Clicks inside the shadow root
+    // also target the host, so only a click on the host itself counts.
+    this.addEventListener("click", (event) => event.composedPath()[0] === this && this.input.focus());
   }
 
   connectedCallback(): void {
-    const root = this.getRootNode() as Document | ShadowRoot;
-    const target = root instanceof ShadowRoot ? root : document.head;
-    if (!target.querySelector(`style[data-${PASSAGE_INPUT_TAG}]`)) {
-      const style = document.createElement("style");
-      style.setAttribute(`data-${PASSAGE_INPUT_TAG}`, "");
-      style.textContent = STYLES;
-      target.append(style);
-    }
-    if (!this.input.isConnected) this.append(this.input, this.list);
     // The field takes its accessible name from this element's labels.
     const label = this.getAttribute("aria-label") ?? [...this.internals.labels].map((l) => l.textContent?.trim()).join(" ");
     if (label) this.input.setAttribute("aria-label", label);
@@ -361,12 +360,14 @@ export class ScripturePassageInput extends HTMLElement {
         option.id = `${this.list.id}-${index}`;
         option.dataset.index = String(index);
         option.setAttribute("role", "option");
+        option.setAttribute("part", "option");
         option.setAttribute("aria-selected", "false");
         option.textContent = unbreakable(suggestion.label);
         const total = suggestionCount(suggestion);
         if (total) {
           const badge = document.createElement("span");
           badge.className = "si-passage-count";
+          badge.setAttribute("part", "count");
           badge.textContent = total;
           option.append(badge);
         }
@@ -377,6 +378,7 @@ export class ScripturePassageInput extends HTMLElement {
     if (!this.suggestions.length && this.input.value.trim()) {
       const empty = document.createElement("li");
       empty.setAttribute("role", "option");
+      empty.setAttribute("part", "option");
       empty.setAttribute("aria-disabled", "true");
       empty.textContent = "No passage matches";
       this.list.append(empty);

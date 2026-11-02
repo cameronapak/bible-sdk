@@ -117,11 +117,13 @@
 
 /* Make room for the close button: a heading reference shares its row, and any other
    layout starts below it. */
-.body > * > .scripture-citation:first-child {
+.body > :not([reference="citation"], [reference="quote"], [reference="none"])::part(citation) {
   padding-inline-end: 36px;
 }
 
-.body > * > :first-child:not(.scripture-citation, .scripture-loading, .scripture-stage) {
+.body > :is([reference="citation"], [reference="none"])::part(text),
+.body > [reference="quote"]::part(quote),
+.body > *::part(error) {
   margin-block-start: 28px;
 }
 
