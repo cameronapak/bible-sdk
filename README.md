@@ -156,7 +156,21 @@ VITE_YVP_APP_KEY=your-public-app-key
 | `pnpm typecheck` | Checks types. |
 | `pnpm test` | Runs the tests. |
 | `pnpm build` | Builds the browser script, the ES module, and the type declarations into `dist`. |
-| `pnpm check` | Runs the typecheck, tests, and build, as CI does. |
+| `pnpm build:site` | Builds the docs and demo page into `dist-site`. |
+| `pnpm check` | Runs the typecheck, tests, and both builds, as CI does. |
+
+### Deploying the website to Cloudflare Workers
+
+Connect this repository to your Worker. In **Settings > Build**, use:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `pnpm build:site` |
+| Deploy command | `npx wrangler deploy --assets ./dist-site` |
+
+Under **Build variables and secrets**, add `VITE_YVP_APP_KEY` with your YouVersion public app key. Set `NODE_VERSION` to `24` to match CI. The public app key is included in the website's JavaScript at build time, so a runtime variable does not replace it. Rebuild the website when you change the key.
+
+The website build is separate from `pnpm build`, which still produces the npm package in `dist`.
 
 ### Releasing
 
