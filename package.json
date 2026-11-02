@@ -33,9 +33,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && vite build --mode lib && tsc -p tsconfig.build.json",
+    "build:site": "vite build --mode site",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm build:site",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-cdn-version.ts"
   },
