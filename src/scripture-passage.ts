@@ -8,9 +8,17 @@ export const SCRIPTURE_PASSAGE_TAG = "si-passage";
 // selectors match nothing. The wrapper resets what the host inherits, and page rules can't
 // target it. Custom properties still inherit, so --scripture-* and the reader tokens work.
 const STYLES = `
-/* flow-root keeps the passage's margins inside, so its layout is identical during and after the grow. */
-:host { display: flow-root; position: relative; }
-.scripture-root { all: initial; display: block; color: inherit; }
+/* flow-root keeps the passage's margins inside, so its layout is identical during and after the grow.
+   bible.css declares its tokens on :host, which would hide a --yv-font-sans the page sets on an
+   ancestor. The host takes the page's value instead, and the wrapper falls back to bible.css's
+   default when the page sets none. A token can't fall back to itself, so --si-font-sans carries it. */
+:host {
+  display: flow-root;
+  position: relative;
+  --yv-font-sans: inherit;
+  --si-font-sans: var(--yv-font-sans, "Inter", sans-serif);
+}
+.scripture-root { all: initial; display: block; color: inherit; --yv-font-sans: var(--si-font-sans); }
 /* Typography comes from --scripture-* properties, which pages set like any CSS. The fallbacks
    are bible.css's own values, except the font: Untitled Serif is YouVersion's Bible typeface,
    but bible.css defaults to Source Serif 4. */

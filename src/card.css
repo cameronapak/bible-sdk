@@ -115,12 +115,6 @@
   overscroll-behavior: contain;
 }
 
-/* bible.css declares --yv-font-sans on the passage's own host, which beats the card's inherited
-   value. A rule out here on the host beats that, so the passage keeps the card's font. */
-.body > * {
-  --yv-font-sans: inherit;
-}
-
 /* Make room for the close button: a heading reference shares its row, and any other
    layout starts below it. */
 .body > :not([reference="citation"], [reference="quote"], [reference="none"])::part(citation) {
