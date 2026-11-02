@@ -3,22 +3,72 @@ import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
 export const SCRIPTURE_PASSAGE_TAG = "si-passage";
 
+// The tokens bible.css declares on ":root, :host", with its defaults, copied from
+// https://cdn.youversion.com/platform/1/bible.css. Inside the shadow root that rule matches
+// this element, which would hide the same tokens set on an ancestor, so the host inherits them
+// instead. A token can't fall back to itself, so --si-* carries each value to the wrapper.
+const BIBLE_TOKENS: Record<string, string> = {
+  "font-sans": "\"Inter\",sans-serif",
+  "font-serif": "\"Source Serif 4\",serif",
+  "font-mono": "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace",
+  "color-black": "#000",
+  "color-white": "#fff",
+  spacing: ".25rem",
+  "container-sm": "24rem",
+  "container-md": "28rem",
+  "container-lg": "32rem",
+  "text-xs": ".75rem",
+  "text-xs--line-height": "calc(1/.75)",
+  "text-sm": ".875rem",
+  "text-sm--line-height": "calc(1.25/.875)",
+  "text-base": "1rem",
+  "text-base--line-height": "calc(1.5/1)",
+  "text-lg": "1.125rem",
+  "text-lg--line-height": "calc(1.75/1.125)",
+  "text-xl": "1.25rem",
+  "text-xl--line-height": "calc(1.75/1.25)",
+  "text-2xl": "1.5rem",
+  "text-2xl--line-height": "calc(2/1.5)",
+  "text-3xl": "1.875rem",
+  "text-3xl--line-height": "calc(2.25/1.875)",
+  "font-weight-normal": "400",
+  "font-weight-medium": "500",
+  "font-weight-bold": "700",
+  "tracking-widest": ".1em",
+  "leading-tight": "1.25",
+  "leading-snug": "1.375",
+  "leading-normal": "1.5",
+  "radius-2xl": "1rem",
+  "radius-3xl": "1.5rem",
+  "ease-out": "cubic-bezier(0,0,.2,1)",
+  "animate-spin": "spin 1s linear infinite",
+  "animate-pulse": "pulse 2s cubic-bezier(.4,0,.6,1)infinite",
+  "blur-sm": "8px",
+  "default-transition-duration": ".15s",
+  "default-transition-timing-function": "cubic-bezier(.4,0,.2,1)",
+};
+const tokenNames = Object.keys(BIBLE_TOKENS);
+const HOST_TOKENS = tokenNames.map((name) => `--yv-${name}: inherit; --si-${name}: var(--yv-${name}, ${BIBLE_TOKENS[name]});`).join("\n  ");
+const ROOT_TOKENS = tokenNames.map((name) => `--yv-${name}: var(--si-${name});`).join("\n  ");
+
 // Shadow DOM, so page CSS can't reach the Bible text. bible.css puts its rules in cascade layers,
 // which lose to any unlayered page rule, even a bare * reset. Inside the shadow root, page
 // selectors match nothing. The wrapper resets what the host inherits, and page rules can't
 // target it. Custom properties still inherit, so --scripture-* and the reader tokens work.
 const STYLES = `
 /* flow-root keeps the passage's margins inside, so its layout is identical during and after the grow.
-   bible.css declares its tokens on :host, which would hide a --yv-font-sans the page sets on an
-   ancestor. The host takes the page's value instead, and the wrapper falls back to bible.css's
-   default when the page sets none. A token can't fall back to itself, so --si-font-sans carries it. */
+   The host takes bible.css's tokens from the page when it sets them, and the wrapper uses them. */
 :host {
   display: flow-root;
   position: relative;
-  --yv-font-sans: inherit;
-  --si-font-sans: var(--yv-font-sans, "Inter", sans-serif);
+  ${HOST_TOKENS}
 }
-.scripture-root { all: initial; display: block; color: inherit; --yv-font-sans: var(--si-font-sans); }
+.scripture-root {
+  all: initial;
+  display: block;
+  color: inherit;
+  ${ROOT_TOKENS}
+}
 /* Typography comes from --scripture-* properties, which pages set like any CSS. The fallbacks
    are bible.css's own values, except the font: Untitled Serif is YouVersion's Bible typeface,
    but bible.css defaults to Source Serif 4. */
