@@ -49,6 +49,14 @@ html[data-loading] main {
   overflow-x: auto;
 }
 
+/* The banner's width and height attributes reserve its space, so the page never shifts as it loads.
+   Its PNG is transparent and its shadows are part of the image, so Sensible UI's image radius doesn't apply. */
+.banner {
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+
 /* Keep the GitHub button beside the title on narrow screens. */
 header > .split {
   flex-wrap: nowrap;

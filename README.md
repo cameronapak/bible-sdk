@@ -2,6 +2,8 @@
 
 Drop-in Scripture for any web page: show a passage, pick a passage, or bring every Bible reference to life.
 
+<img src="assets/banner.png" width="2533" height="718" alt="A passage input suggesting Isaiah 40:3, a Scripture card showing John 3:16 under a reference link, and a passage showing Isaiah 40:8">
+
 Scripture Inline has three parts:
 
 - **Bible references.** A script finds references such as "John 3:16" or "Rom 8:28-30" in your page's text. It makes each one open a Scripture card or link to [route.bible](https://route.bible).
