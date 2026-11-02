@@ -167,6 +167,9 @@ Connect this repository to your Worker. In **Settings > Build**, use:
 | --- | --- |
 | Build command | `pnpm build:site` |
 | Deploy command | `npx wrangler deploy --assets ./dist-site` |
+| Preview command | `npx wrangler preview` |
+
+The repository's `wrangler.jsonc` points both production and preview deployments at `dist-site` and enables Cloudflare Previews.
 
 Under **Build variables and secrets**, add `VITE_YVP_APP_KEY` with your YouVersion public app key. Set `NODE_VERSION` to `24` to match CI. The public app key is included in the website's JavaScript at build time, so a runtime variable does not replace it. Rebuild the website when you change the key.
 

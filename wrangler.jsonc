@@ -1,0 +1,8 @@
+{
+  "name": "scripture-inline",
+  "compatibility_date": "2026-11-02",
+  "assets": {
+    "directory": "./dist-site"
+  },
+  "previews": {}
+}
