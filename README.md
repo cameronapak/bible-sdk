@@ -22,7 +22,7 @@ Cards and passages need a free YouVersion Platform app key. Sign up at [platform
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.2.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.0/dist/scripture-inline.js"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
 ></script>
 ```
