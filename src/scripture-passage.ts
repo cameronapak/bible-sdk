@@ -7,7 +7,7 @@ export const SCRIPTURE_PASSAGE_TAG = "si-passage";
 // https://cdn.youversion.com/platform/1/bible.css. Inside the shadow root that rule matches
 // this element, which would hide the same tokens set on an ancestor, so the host inherits them
 // instead. A token can't fall back to itself, so --si-* carries each value to the wrapper.
-const BIBLE_TOKENS: Record<string, string> = {
+export const BIBLE_TOKENS: Record<string, string> = {
   "font-sans": "\"Inter\",sans-serif",
   "font-serif": "\"Source Serif 4\",serif",
   "font-mono": "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace",
