@@ -1,5 +1,11 @@
 # @faith-tools/scripture-inline
 
+## 0.3.2
+
+### Patch Changes
+
+- a308916: Update grab-bcv to 0.1.8.
+
 ## 0.3.1
 
 ### Patch Changes
