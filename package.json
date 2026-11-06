@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@youversion/platform-core": "^2.16.0",
-    "grab-bcv": "^0.1.7"
+    "grab-bcv": "^0.1.8"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
