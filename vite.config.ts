@@ -12,8 +12,16 @@ export default defineConfig(({ mode }) => ({
       : mode === "lib"
         ? {
             emptyOutDir: false,
-            lib: { entry: "src/index.ts", formats: ["es"], fileName: () => "index.js" },
-            rolldownOptions: { external: [/^@youversion\//, "grab-bcv"] },
+            lib: {
+              entry: {
+                index: "src/index.ts", data: "src/data.ts",
+                "providers/helloao": "src/providers/helloao.ts",
+                "providers/youversion": "src/providers/youversion.ts",
+                "providers/fetch-bible": "src/providers/fetch-bible.ts",
+              },
+              formats: ["es"], fileName: (_format, name) => `${name}.js`,
+            },
+            rolldownOptions: { external: [/^@youversion\//, /^@gracious\.tech\//, /^effect(?:\/|$)/, "free-use-bible-api", "grab-bcv", "sanitize-html"] },
           }
         : {
             lib: { entry: "src/embed.ts", name: "ScriptureInline", formats: ["iife"], fileName: () => "scripture-inline.js" },

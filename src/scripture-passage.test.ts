@@ -26,6 +26,7 @@ function nextEvent(element: HTMLElement, name = "scripture-load"): Promise<Custo
 it("loads HelloAO/BSB without a key and emits provider-neutral metadata", async () => {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "BSB", shortName: "BSB", name: "Berean Standard Bible", language: "eng", textDirection: "ltr", licenseUrl: "https://berean.bible/" },
+    book: { name: "John" },
     numberOfVerses: 36,
     chapter: { number: 3, content: [{ type: "verse", number: 16, content: ["For God so loved the world"] }] },
   } as ApiTranslationBookChapter);
@@ -44,6 +45,22 @@ it("loads HelloAO/BSB without a key and emits provider-neutral metadata", async 
     ["HelloAO Free Use Bible API", "https://bible.helloao.org/docs/"],
   ]);
   expect(passage.shadowRoot?.querySelector("link")).toBeNull();
+});
+
+it("does not resurrect cleared Scripture when display attributes change", async () => {
+  const passage = document.createElement("si-passage");
+  passage.bibleProvider = { id: "fixture", defaultVersionId: "fixture", async getPassage() { return { html: "Previous text", version: { id: "fixture", title: "Fixture", abbreviation: "F" }, attribution: "Owner" }; } };
+  passage.setAttribute("passage-id", "JHN.3.16");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  passage.removeAttribute("passage-id");
+  await new Promise((resolve) => setTimeout(resolve));
+  expect(passage.shadowRoot?.querySelector('[role="alert"]')?.textContent).toContain("Set passage-id");
+  passage.setAttribute("reference", "quote");
+  passage.setAttribute("dir", "rtl");
+  expect(passage.shadowRoot?.querySelector('[role="alert"]')?.textContent).toContain("Set passage-id");
+  expect(passage.shadowRoot?.textContent).not.toContain("Previous text");
 });
 
 it("switches same-ID providers without reusing another provider's cached passage or version default", async () => {

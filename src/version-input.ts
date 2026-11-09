@@ -1,4 +1,5 @@
-import { listBibleVersions, providerDefaults, resolveProvider, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
+import { Effect } from "effect";
+import { listBibleVersionsEffect, providerDefaults, resolveProvider, resolveProviderEffect, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
 
 export const VERSION_INPUT_TAG = "si-version-input";
 export type VersionInputDetail = { provider: string; bibleVersionId: string; bibleVersion: BibleVersion | null };
@@ -60,6 +61,7 @@ export class ScriptureVersionInput extends HTMLElement {
   private active = -1;
   private generation = 0;
   private scheduled = false;
+  private cancelLoad?: () => void;
   private loading = false;
   private failed = false;
   private formDisabled = false;
@@ -148,7 +150,7 @@ export class ScriptureVersionInput extends HTMLElement {
     this.input.setAttribute("aria-label", this.getAttribute("aria-label") || [...this.internals.labels].map((label) => label.textContent?.trim()).join(" ") || "Bible translation");
     this.scheduleLoad();
   }
-  disconnectedCallback(): void { this.generation++; this.close(); }
+  disconnectedCallback(): void { this.generation++; this.cancelLoad?.(); this.close(); }
   attributeChangedCallback(name: string, old: string | null, value: string | null): void {
     if (old === value) return;
     if (name === "value") { this.pendingValue = value ?? ""; if (!this.loading) this.commit(this.pendingValue, false); }
@@ -246,11 +248,29 @@ export class ScriptureVersionInput extends HTMLElement {
   }
   private scheduleLoad(): void {
     this.generation++;
+    this.cancelLoad?.();
     if (this.scheduled) return;
     this.scheduled = true;
-    queueMicrotask(() => { this.scheduled = false; if (this.isConnected) void this.load(this.generation); });
+    queueMicrotask(() => {
+      this.scheduled = false;
+      if (this.isConnected) this.cancelLoad = Effect.runCallback(this.load(this.generation).pipe(
+        Effect.catch((error) => Effect.sync(() => {
+          this.selected = undefined;
+          this.versions = [];
+          this.input.value = "";
+          this.status.textContent = "Unable to load translations.";
+          this.internals.setValidity({ customError: true }, "Unable to load translations.", this.input);
+          this.input.setAttribute("aria-invalid", "true");
+          this.loading = false;
+          this.failed = true;
+          this.updateDisabled();
+          this.retry.hidden = false;
+          this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
+        })),
+      ));
+    });
   }
-  private async load(generation: number): Promise<void> {
+  private readonly load = Effect.fn("scripture.versionInput.load")(function*(this: ScriptureVersionInput, generation: number) {
     const previous = this.pendingValue ?? this.selected?.id;
     this.loading = true;
     this.failed = false;
@@ -260,14 +280,13 @@ export class ScriptureVersionInput extends HTMLElement {
     this.internals.setFormValue(null);
     this.internals.setValidity({});
     this.input.setAttribute("aria-invalid", "false");
-    try {
-      const provider = resolveProvider({
+      const provider = yield* resolveProviderEffect({
         ...providerDefaults,
         provider: (this.getAttribute("provider") as ProviderOptions["provider"]) || this.override || providerDefaults.provider,
         yvpPublicAppKey: this.getAttribute("yvp-public-app-key") || providerDefaults.yvpPublicAppKey,
         yvpApiHost: this.getAttribute("yvp-api-host") || providerDefaults.yvpApiHost,
       });
-      const versions = await listBibleVersions({ provider });
+      const versions = yield* listBibleVersionsEffect({ provider });
       if (!this.isConnected || generation !== this.generation) return;
       this.provider = provider;
       this.versions = [...versions].sort((a, b) => a.title.localeCompare(b.title));
@@ -283,21 +302,7 @@ export class ScriptureVersionInput extends HTMLElement {
       this.loading = false;
       this.updateDisabled();
       this.dispatchEvent(new CustomEvent("scripture-versions-load", { detail: { provider: provider.id, versions } }));
-    } catch (error) {
-      if (!this.isConnected || generation !== this.generation) return;
-      this.selected = undefined;
-      this.versions = [];
-      this.input.value = "";
-      this.status.textContent = "Unable to load translations.";
-      this.internals.setValidity({ customError: true }, "Unable to load translations.", this.input);
-      this.input.setAttribute("aria-invalid", "true");
-      this.loading = false;
-      this.failed = true;
-      this.updateDisabled();
-      this.retry.hidden = false;
-      this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
-    }
-  }
+  });
 }
 
 /** Registers <si-version-input>, sharing provider defaults with standalone passages. */

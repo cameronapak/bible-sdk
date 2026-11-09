@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
+import { Effect } from "effect";
 import * as youversion from "@youversion/platform-core";
 import { helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider } from "./providers";
 
@@ -8,12 +9,13 @@ vi.mock("@youversion/platform-core", async (importOriginal) => ({
   ...await importOriginal<typeof youversion>(), getVersions: vi.fn(), getPassageDisplay: vi.fn(),
 }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(async () => { vi.restoreAllMocks(); await Effect.runPromise(helloaoProvider.effects.clearCache); });
 
 // Small chapter with distinct boundary verses and formatting, not a second renderer.
 function chapter() {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "test", name: "Test Bible", shortName: "TB", language: "heb", textDirection: "rtl", licenseNotice: "Required copyright notice", licenseUrl: "https://example.com/license" },
+    book: { name: "John" },
     numberOfVerses: 4,
     chapter: { number: 3, content: [
       { type: "heading", content: ["First section"] },
@@ -64,7 +66,8 @@ it("supports single verses and whole chapters without including the next section
 
 it("includes final verses when chapter numbering has gaps", async () => {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
-    translation: { id: "test", name: "Test Bible", licenseUrl: "https://example.com/license" },
+    translation: { id: "test", name: "Test Bible", language: "eng", licenseUrl: "https://example.com/license" },
+    book: { name: "John" },
     numberOfVerses: 2,
     chapter: { number: 3, content: [
       { type: "verse", number: 1, content: ["First verse"] },
@@ -110,6 +113,7 @@ it("credits YouVersion without replacing the translation's copyright notice", as
 it("escapes license labels and never creates executable license links", async () => {
   const response = {
     translation: { id: "test", name: '<img src=x onerror="alert(1)">', language: "eng", licenseUrl: "javascript:alert(1)" },
+    book: { name: "John" },
     numberOfVerses: 1, chapter: { number: 1, content: [{ type: "verse", number: 1, content: ["Text"] }] },
   } as ApiTranslationBookChapter;
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue(response);
@@ -132,12 +136,14 @@ it("lists HelloAO IDs unchanged and normalizes language tags for filtering", asy
   ]);
 });
 
-it("includes every YouVersion catalog page, with IDs as strings", async () => {
+it("includes every YouVersion catalog page with string IDs and rejects pagination cycles", async () => {
   const page = (id: number, next: string | null) => ({
     data: [{ id, localized_abbreviation: `V${id}`, localized_title: `Version ${id}`, language_tag: "en" }], next_page_token: next,
   }) as Awaited<ReturnType<typeof youversion.getVersions>>;
   vi.mocked(youversion.getVersions).mockResolvedValueOnce(page(3034, "page-two")).mockResolvedValueOnce(page(111, null));
   expect((await listBibleVersions({ provider: createYouVersionProvider({ yvpPublicAppKey: "test" }) })).map((v) => v.id)).toEqual(["3034", "111"]);
+  vi.mocked(youversion.getVersions).mockResolvedValue(page(3034, "repeated"));
+  await expect(listBibleVersions({ provider: createYouVersionProvider({ yvpPublicAppKey: "test" }) })).rejects.toMatchObject({ code: "invalid_response" });
 });
 
 it("keeps catalogs scoped to provider identity and lets failed loads retry", async () => {
@@ -146,7 +152,7 @@ it("keeps catalogs scoped to provider identity and lets failed loads retry", asy
     async listVersions() { if (++attempts === 1) throw new Error("Offline"); return [{ id: "a", title: "First", abbreviation: "F" }]; },
   };
   const second: BibleProvider = { ...first, async listVersions() { return [{ id: "b", title: "Second", abbreviation: "S" }]; } };
-  await expect(listBibleVersions({ provider: first })).rejects.toThrow("Offline");
+  await expect(listBibleVersions({ provider: first })).rejects.toMatchObject({ code: "network", cause: new Error("Offline") });
   expect((await listBibleVersions({ provider: first }))[0].id).toBe("a");
   expect((await listBibleVersions({ provider: second }))[0].id).toBe("b");
 });
