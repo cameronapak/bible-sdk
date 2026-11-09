@@ -293,7 +293,7 @@ export class ScripturePassageInput extends HTMLElement {
   private commit(text: string, notify = true): void {
     const trimmed = text.trim();
     const parsed = trimmed ? tryParsePassage(trimmed) : null;
-    // The YouVersion API serves one chapter at most, so a passage cannot cross chapters.
+    // Passage providers serve one chapter at most, so a passage cannot cross chapters.
     const spans = parsed?.ok && (parsed.value.start.book !== parsed.value.end.book || parsed.value.start.chapter !== parsed.value.end.chapter);
     if ((parsed && !parsed.ok) || spans) {
       // Keep what the reader typed so they can fix it.

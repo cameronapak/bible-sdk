@@ -1,25 +1,24 @@
 import { createScriptureCard } from "./card";
 import { REF_CLASS, unwrapReferences, wrapReferences } from "./scan";
 import type { ReferenceLayout } from "./scripture-passage";
+import type { ProviderOptions } from "./providers";
 
 export { findReferences, type FoundReference } from "./find";
 export { unwrapReferences, wrapReferences } from "./scan";
 export { createScriptureCard } from "./card";
 export { PASSAGE_INPUT_TAG, ScripturePassageInput, definePassageInput, type PassageInputDetail } from "./passage-input";
+export { VERSION_INPUT_TAG, ScriptureVersionInput, defineVersionInput, type VersionInputDetail } from "./version-input";
 export { SCRIPTURE_PASSAGE_TAG, ScripturePassage, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
+export { helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
 
 export type Mode = "link" | "card";
 export type Trigger = "click" | "hover";
 
-export type ScriptureInlineOptions = {
+export type ScriptureInlineOptions = ProviderOptions & {
   /** "link" opens route.bible. "card" shows the passage in a card. Default: "card". */
   mode?: Mode;
-  /** YouVersion Platform app key. Required for "card" mode. */
-  yvpPublicAppKey?: string;
   /** What opens a card: "click", or "hover" with a mouse (taps and clicks still work). Default: "click". */
   trigger?: Trigger;
-  /** Bible version for cards. Default: 3034 (BSB). */
-  yvpBibleVersionId?: number;
   /** Where a card shows the reference: "heading", "citation", "quote", or "none". Default: "heading". */
   reference?: ReferenceLayout;
   /** Where to look for references. Default: the whole page, including a body that replaces it. */
@@ -27,8 +26,6 @@ export type ScriptureInlineOptions = {
   /** Keep linking references in content added later, such as pages swapped in by Turbo or a router. Default: true. */
   watch?: boolean;
 };
-
-const BSB = 3034;
 
 const linkStyles = `
 .${REF_CLASS} {
@@ -60,11 +57,10 @@ export type ScriptureInline = {
 export function scriptureInline({
   mode = "card",
   trigger = "click",
-  yvpPublicAppKey,
-  yvpBibleVersionId = BSB,
   reference = "heading",
   root,
   watch = true,
+  ...providerOptions
 }: ScriptureInlineOptions = {}): ScriptureInline {
   if (!document.getElementById("scripture-inline-styles")) {
     const style = document.createElement("style");
@@ -102,8 +98,7 @@ export function scriptureInline({
     card?.closeIfDetached();
   });
   if (mode === "card") {
-    if (!yvpPublicAppKey) throw new Error("[scripture-inline] Card mode needs a YouVersion Platform yvpPublicAppKey.");
-    const opened = (card = createScriptureCard({ yvpPublicAppKey, yvpBibleVersionId, reference }));
+    const opened = (card = createScriptureCard({ ...providerOptions, reference }));
     const refFrom = (event: Event) => (event.target as Element).closest?.(`a.${REF_CLASS}`) as HTMLAnchorElement | null;
 
     events.addEventListener("click", (event) => {

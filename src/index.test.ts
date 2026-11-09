@@ -10,7 +10,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve));
 
 it("keeps linking references and opening cards after a router swaps the body, as Turbo does", async () => {
   document.body.innerHTML = `<p>Home: John 3:16</p>`;
-  const inline = scriptureInline({ yvpPublicAppKey: "test-key" });
+  const inline = scriptureInline();
   expect(inline.links).toHaveLength(1);
 
   // Turbo Drive caches a clone of the page, replaces <body> with the next page's body, and merges its <head>.

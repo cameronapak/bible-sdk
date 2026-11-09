@@ -35,32 +35,30 @@
         </p>
         <img class="banner" src="./assets/banner.png" width="2533" height="718" alt="A passage input suggesting Isaiah 40:3, a Scripture card showing John 3:16 under a reference link, and a passage showing Isaiah 40:8" />
         <p class="text-muted-foreground">
-          A community project. Not made, endorsed, or supported by YouVersion.
+          A community project. Bible text from HelloAO's Free Use Bible API, with no API key.
+          The YouVersion Platform is also available as an optional provider.
         </p>
         <nav class="cluster">
           <a href="#getting-started">Getting started</a>
           <a href="#references">Bible references</a>
           <a href="#passage">Passage</a>
           <a href="#passage-input">Passage input</a>
+          <a href="#version-input">Translation picker</a>
           <a href="#javascript">JavaScript</a>
         </nav>
       </header>
 
       <section class="stack" id="getting-started">
         <h2>Getting started</h2>
-        <h3>1. Get an app key</h3>
+        <h3>Add the script</h3>
         <p>
-          Bible text comes from the YouVersion Platform, so cards and passages need a free app key. The key is public,
-          so you can put it in page markup. Link mode works without one.
+          Cards and passages use <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>
+          and the Berean Standard Bible by default. No account or API key is required.
+          The <a href="#providers">YouVersion Platform</a> is also available as an optional provider.
         </p>
-        <ol>
-          <li>Sign up at <a href="https://platform.youversion.com/" target="_blank" rel="noopener">platform.youversion.com</a>.</li>
-          <li>Create an app and copy its app key.</li>
-        </ol>
-        <h3>2. Add the script</h3>
-        <p>Add one script tag with your app key. It registers the components and finds references on the page.</p>
+        <p>Add one script tag. It registers the components and finds references on the page.</p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js" data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js">&lt;/script></textarea>
         </sensible-code>
       </section>
 
@@ -99,10 +97,13 @@
             <tr><th scope="col">Script tag and JavaScript</th><th scope="col">Default</th><th scope="col">Purpose</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>data-yvp-public-app-key</code><br /><code>yvpPublicAppKey</code></td><td>None</td><td>Your public YouVersion Platform app key. It is safe to put in page markup. Required for <code>card</code>.</td></tr>
+            <tr><td><code>data-provider</code><br /><code>provider</code></td><td><code>helloao</code></td><td><code>helloao</code> or <code>youversion</code>. JavaScript also accepts a <code>BibleProvider</code> object.</td></tr>
+            <tr><td><code>data-bible-version-id</code><br /><code>bibleVersionId</code></td><td>Provider default</td><td><code>BSB</code> for HelloAO; <code>3034</code> for YouVersion. IDs are provider-specific.</td></tr>
+            <tr><td><code>data-yvp-public-app-key</code><br /><code>yvpPublicAppKey</code></td><td>None</td><td>Your public app key. Required only for YouVersion.</td></tr>
+            <tr><td><code>data-yvp-api-host</code><br /><code>yvpApiHost</code></td><td>YouVersion's API</td><td>Another YouVersion API host, for testing.</td></tr>
             <tr><td><code>data-mode</code><br /><code>mode</code></td><td><code>card</code></td><td><code>card</code> opens a Scripture card; <code>link</code> links to route.bible.</td></tr>
             <tr><td><code>data-trigger</code><br /><code>trigger</code></td><td><code>click</code></td><td><code>hover</code> also opens cards on mouse hover.</td></tr>
-            <tr><td><code>data-yvp-bible-version-id</code><br /><code>yvpBibleVersionId</code></td><td><code>3034</code></td><td>The YouVersion Bible version for cards. 3034 is the BSB.</td></tr>
+            <tr><td><code>data-yvp-bible-version-id</code><br /><code>yvpBibleVersionId</code></td><td><code>3034</code></td><td>YouVersion-only alias. <code>bibleVersionId</code> takes precedence.</td></tr>
             <tr><td><code>data-reference</code><br /><code>reference</code></td><td><code>heading</code></td><td>The card's reference layout, as on <a href="#passage">si-passage</a>.</td></tr>
             <tr><td><code>root</code></td><td>Whole page</td><td>The element to look for references in. Leave it unset on sites that replace <code>&lt;body&gt;</code>.</td></tr>
             <tr><td><code>watch</code></td><td><code>true</code></td><td>Also links references in content added later, such as pages that Turbo swaps in. <code>false</code> scans once. Mark content that a framework like React renders with <code>data-scripture-inline-ignore</code>.</td></tr>
@@ -127,7 +128,7 @@
           </div>
           <div class="auto-grid" style="--min-item-size: 14rem" id="passage-picker">
             <div><label for="pick-passage">Passage</label><si-passage-input id="pick-passage" value="JHN.3.16" placeholder="Romans 8 or John 3:16"></si-passage-input></div>
-            <div><label for="pick-version">Version</label><select id="pick-version"></select></div>
+            <div><label for="pick-version">Translation</label><si-version-input id="pick-version" value="BSB"></si-version-input></div>
           </div>
           <div class="cluster" id="content-switches">
             <label><input type="checkbox" role="switch" data-attribute="verse-numbers" data-off="hide" checked />Verse numbers</label>
@@ -150,14 +151,14 @@
             <div>
               <label for="type-font">Font</label>
               <select id="type-font" data-property="--scripture-font-family" data-unit="">
-                <option value="" selected>Untitled Serif</option>
+                <option value="" selected>Default (Georgia)</option>
                 <option value="Georgia, serif">Georgia</option>
                 <option value="system-ui, sans-serif">System sans</option>
               </select>
             </div>
           </div>
           </div>
-          <si-passage id="layout-demo" yvp-bible-version-id="3034" passage-id="JHN.3.16" reference="heading" theme="auto"></si-passage>
+          <si-passage id="layout-demo" passage-id="JHN.3.16" reference="heading" theme="auto"></si-passage>
         </div>
         <div id="layout-code"></div>
         <div class="table-scroll">
@@ -167,7 +168,9 @@
           </thead>
           <tbody>
             <tr><td><code>yvp-public-app-key</code></td><td>The script tag's key</td><td>Your public YouVersion Platform app key. It is safe to put in page markup. Only needed to override the key on the script tag.</td></tr>
-            <tr><td><code>yvp-bible-version-id</code></td><td>None</td><td>The YouVersion Bible version, such as <code>3034</code> for the BSB. Required.</td></tr>
+            <tr><td><code>provider</code></td><td>The script's provider, or <code>helloao</code></td><td><code>helloao</code> or <code>youversion</code>.</td></tr>
+            <tr><td><code>bible-version-id</code></td><td>The script's version, or provider default</td><td><code>BSB</code> for HelloAO; <code>3034</code> for YouVersion.</td></tr>
+            <tr><td><code>yvp-bible-version-id</code></td><td><code>3034</code></td><td>YouVersion-only alias. <code>bible-version-id</code> takes precedence.</td></tr>
             <tr><td><code>passage-id</code></td><td>None</td><td>A USFM passage, such as <code>ROM.8.28-30</code>, or a whole chapter, <code>ROM.8</code>. Required.</td></tr>
             <tr><td><code>reference</code></td><td><code>heading</code></td><td>Where the reference shows: <code>heading</code>, <code>citation</code>, <code>quote</code>, or <code>none</code>.</td></tr>
             <tr><td><code>verse-numbers</code></td><td>Shown</td><td><code>hide</code> removes verse numbers.</td></tr>
@@ -187,7 +190,7 @@
           <tbody>
             <tr><td><code>--scripture-font-size</code></td><td><code>20px</code></td><td>The Bible text size. The reference line scales with it.</td></tr>
             <tr><td><code>--scripture-line-height</code></td><td><code>1.625</code></td><td>Line height of the Bible text.</td></tr>
-            <tr><td><code>--scripture-font-family</code></td><td>Untitled Serif</td><td>Font of the Bible text.</td></tr>
+            <tr><td><code>--scripture-font-family</code></td><td>Georgia (HelloAO), Untitled Serif (YouVersion)</td><td>Font of the Bible text.</td></tr>
             <tr><td><code>--scripture-max-width</code></td><td><code>32rem</code></td><td>Line length of the text, reference, and copyright.</td></tr>
           </tbody>
         </table>
@@ -205,7 +208,7 @@
             <tr><td><code>text</code></td><td>The Bible text.</td></tr>
             <tr><td><code>citation</code></td><td>The reference and version.</td></tr>
             <tr><td><code>version</code></td><td>The version abbreviation inside the citation.</td></tr>
-            <tr><td><code>attribution</code></td><td>The copyright line.</td></tr>
+            <tr><td><code>attribution</code></td><td>The copyright line and Bible provider credit.</td></tr>
             <tr><td><code>quote</code></td><td>The block quote in the <code>quote</code> layout.</td></tr>
             <tr><td><code>loader</code></td><td>The spinner while the text loads.</td></tr>
             <tr><td><code>error</code></td><td>The message when the text can't load.</td></tr>
@@ -218,7 +221,7 @@
             <tr><th scope="col">Event</th><th scope="col">Detail</th><th scope="col">When</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>scripture-load</code></td><td><code>passageId</code>, <code>yvpBibleVersionId</code>, <code>yvpBibleVersion</code></td><td>The passage is on screen.</td></tr>
+            <tr><td><code>scripture-load</code></td><td><code>provider</code>, <code>passageId</code>, <code>bibleVersionId</code>, <code>bibleVersion</code></td><td>The passage is on screen. The version has <code>id</code>, <code>abbreviation</code>, and <code>title</code>. YouVersion also includes the original <code>yvpBibleVersionId</code> and <code>yvpBibleVersion</code>.</td></tr>
             <tr><td><code>scripture-error</code></td><td>The error</td><td>The passage could not load.</td></tr>
           </tbody>
         </table>
@@ -273,6 +276,52 @@
         </p>
       </section>
 
+      <section class="stack" id="version-input">
+        <h2>Translation picker</h2>
+        <p><code>&lt;si-version-input&gt;</code> lets readers filter by language and search translation names or abbreviations, without knowing provider IDs. Arrow keys, Enter, Escape, and form reset work, too. Typing does not change the selection until the reader picks a translation. Failed catalog requests offer Retry.</p>
+        <div class="demo stack">
+          <div>
+            <label for="version-demo">Translation</label>
+            <si-version-input id="version-demo" name="translation" value="BSB"></si-version-input>
+          </div>
+          <p>Value: <code id="version-value">BSB</code></p>
+        </div>
+        <div id="version-code"></div>
+        <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Attribute</th><th scope="col">Default</th><th scope="col">Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>value</code></td><td>The script's version, or provider default</td><td>The selected provider's translation ID, such as <code>BSB</code>.</td></tr>
+            <tr><td><code>name</code></td><td>None</td><td>The form field name. The form submits the translation ID.</td></tr>
+            <tr><td><code>language</code></td><td>Selected translation or browser language</td><td>A language tag such as <code>en</code>, or <code>all</code>. Filters choices, not the selected passage.</td></tr>
+            <tr><td><code>placeholder</code></td><td><code>Search translations</code></td><td>Hint text in the search field.</td></tr>
+            <tr><td><code>disabled</code></td><td>Off</td><td>Turns the field off.</td></tr>
+            <tr><td><code>provider</code></td><td>The script's provider, or <code>helloao</code></td><td><code>helloao</code> or <code>youversion</code>.</td></tr>
+            <tr><td><code>yvp-public-app-key</code></td><td>The script tag's key</td><td>Your public app key. Required only for YouVersion.</td></tr>
+            <tr><td><code>yvp-api-host</code></td><td>YouVersion's API</td><td>Another YouVersion API host, for testing.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Event</th><th scope="col">Detail</th><th scope="col">When</th></tr></thead>
+          <tbody>
+            <tr><td><code>change</code></td><td><code>provider</code>, <code>bibleVersionId</code>, <code>bibleVersion</code></td><td>The reader picks a different translation.</td></tr>
+            <tr><td><code>scripture-versions-load</code></td><td><code>provider</code>, <code>versions</code></td><td>The provider's catalog loads.</td></tr>
+            <tr><td><code>scripture-error</code></td><td>The error</td><td>The catalog could not load.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>The <code>value</code> property reads or sets the selected ID. <code>bibleVersion</code> has <code>id</code>, <code>abbreviation</code>, <code>title</code>, and optional <code>language</code> and <code>languageName</code>. An unavailable ID clears the field and marks it invalid. IDs belong to one provider, not a universal catalog. HelloAO's <code>BSB</code> and YouVersion's <code>3034</code> both name the Berean Standard Bible, but matching names or abbreviations do not guarantee identical editions.</p>
+        <sensible-code language="js" data-wrap="true">
+          <textarea readonly>// Connect a picker and passage using the same provider.
+document.querySelector("si-version-input").addEventListener("change", (event) => {
+  document.querySelector("si-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
+});</textarea>
+        </sensible-code>
+        <p>The field uses the same page style tokens as the passage input. Its parts are <code>language</code>, <code>input</code>, <code>listbox</code>, <code>option</code>, <code>status</code>, and <code>retry</code>.</p>
+      </section>
+
       <section class="stack" id="javascript">
         <h2>JavaScript</h2>
         <p>Building with a bundler? Install <code>@faith-tools/scripture-inline</code> and call the same functions.</p>
@@ -280,15 +329,16 @@
           <textarea readonly>import {
   definePassageInput,
   defineScripturePassage,
+  defineVersionInput,
   scriptureInline,
 } from "@faith-tools/scripture-inline";
 
-defineScripturePassage({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" });
+defineScripturePassage();
 definePassageInput();
+defineVersionInput();
 scriptureInline({
   mode: "card",
   trigger: "hover",
-  yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY",
   root: document.querySelector("article"),
 });</textarea>
         </sensible-code>
@@ -299,12 +349,36 @@ scriptureInline({
           </thead>
           <tbody>
             <tr><td><code>scriptureInline(options)</code></td><td>Finds and links references. Takes the <a href="#references">Bible references</a> options and returns <code>{ links, stop }</code>; <code>stop()</code> restores the plain text.</td></tr>
-            <tr><td><code>defineScripturePassage({ yvpPublicAppKey })</code></td><td>Registers <code>&lt;si-passage&gt;</code>. The optional <code>yvpPublicAppKey</code> is the default for every passage.</td></tr>
+            <tr><td><code>defineScripturePassage(options)</code></td><td>Registers <code>&lt;si-passage&gt;</code>. Provider options set page-wide defaults; attributes override them.</td></tr>
+            <tr><td><code>helloaoProvider</code></td><td>The default provider, using the <code>free-use-bible-api</code> SDK.</td></tr>
+            <tr><td><code>createYouVersionProvider({ yvpPublicAppKey, yvpApiHost })</code></td><td>Creates the optional YouVersion provider.</td></tr>
             <tr><td><code>definePassageInput()</code></td><td>Registers <code>&lt;si-passage-input&gt;</code>.</td></tr>
+            <tr><td><code>defineVersionInput(options)</code></td><td>Registers <code>&lt;si-version-input&gt;</code>. Shares provider defaults with <code>defineScripturePassage()</code>.</td></tr>
+            <tr><td><code>listBibleVersions(options)</code></td><td>Returns the provider's catalog as <code>Promise&lt;BibleVersion[]&gt;</code>. Accepts provider options; caches successful requests.</td></tr>
             <tr><td><code>findReferences(text)</code></td><td>Returns the references in a string, without touching the page.</td></tr>
           </tbody>
         </table>
         </div>
+        <sensible-code language="js" data-wrap="true">
+          <textarea readonly>// Use the shared catalog for your own controls.
+import { listBibleVersions } from "@faith-tools/scripture-inline";
+
+const versions = await listBibleVersions(); // Uses the page's provider, or HelloAO
+const english = versions.filter((version) => version.language === "en");</textarea>
+        </sensible-code>
+      </section>
+
+      <section class="stack" id="providers">
+        <h2>Switching providers</h2>
+        <p>YouVersion is optional. To use it, get a public app key from <a href="https://platform.youversion.com/">platform.youversion.com</a> and select the provider explicitly:</p>
+        <sensible-code language="html" data-wrap="true">
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js" data-provider="youversion" data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY" data-yvp-bible-version-id="3034">&lt;/script></textarea>
+        </sensible-code>
+        <p>With a bundler, pass <code>{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }</code> to <code>scriptureInline()</code> and <code>defineScripturePassage()</code>. A standalone passage can set <code>provider="youversion"</code> and <code>yvp-public-app-key="YOUR_PUBLIC_APP_KEY"</code>.</p>
+        <p><strong>Migration:</strong> Existing YouVersion integrations must add <code>data-provider="youversion"</code>, <code>provider="youversion"</code>, or <code>provider: "youversion"</code>. A public app key alone no longer selects YouVersion. The <code>yvp-*</code> settings and original YouVersion load-event fields remain supported. HelloAO uses translation IDs such as <code>BSB</code>, not YouVersion's numeric IDs.</p>
+        <p>For another provider, implement the exported <code>BibleProvider</code> interface: <code>id</code>, <code>defaultVersionId</code>, and <code>getPassage(versionId, passageId): Promise&lt;PassageDisplay&gt;</code>. The display contains safe <code>html</code>, <code>version: { id, abbreviation, title }</code>, and an <code>attribution</code> string. Optional fields are safe <code>attributionHtml</code> for links, <code>direction</code>, <code>containerAttributes</code>, and <code>stylesheets</code>. Pass the object as <code>provider</code> to either function, or assign it to a passage's <code>bibleProvider</code> property. The <code>provider</code> attribute takes precedence. Providers must sanitize both HTML fields before returning them.</p>
+        <p>For the translation picker, also implement <code>listVersions(): Promise&lt;BibleVersion[]&gt;</code>. Assign a custom provider to its <code>bibleProvider</code> property, or pass it to <code>defineVersionInput()</code>. Catalogs are scoped to the provider, including the YouVersion public app key and API host. Switching providers does not guess an equivalent translation.</p>
+        <p>HelloAO keeps headings, poetry, and words-of-Jesus formatting when supplied by the translation. Its license notice, or the translation name linked to the license, always appears below the text. Both built-in providers add a short source credit with the provider name linked: "Source: HelloAO Free Use Bible API" or "Source: YouVersion Platform". Check the translation's license before use. Passages cannot cross chapters.</p>
       </section>
 
       <footer class="stack text-muted-foreground" style="--layout-gap: 0.5rem">
@@ -314,18 +388,17 @@ scriptureInline({
         </p>
         <p>
           Scripture Inline is an independent community project. It is not affiliated with, endorsed by, or supported
-          by YouVersion or Life.Church. It uses the public YouVersion Platform API.
+          by YouVersion or Life.Church. HelloAO is the default Bible data source; YouVersion is optional.
         </p>
-        <p>Bible text from the <a href="https://developers.youversion.com/">YouVersion Platform</a>. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
+        <p>Default Bible text from <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
       </footer>
     </main>
     <script type="module">
       import "@faith-tools/sensible-ui/code";
-      import { ApiClient, getVersions } from "@youversion/platform-core";
-      import { definePassageInput, defineScripturePassage, scriptureInline } from "/src/index.ts";
-      const appKey = import.meta.env.VITE_YVP_APP_KEY;
-      defineScripturePassage({ yvpPublicAppKey: appKey });
+      import { definePassageInput, defineVersionInput, defineScripturePassage, scriptureInline } from "/src/index.ts";
+      defineScripturePassage();
       definePassageInput();
+      defineVersionInput();
       const demo = document.getElementById("layout-demo");
 
       // <sensible-code> highlights its source once, so a new one replaces it each time.
@@ -347,13 +420,11 @@ scriptureInline({
       const referencesOn = document.getElementById("references-on");
       const modes = document.getElementById("mode-picker");
       const start = () =>
-        scriptureInline({ mode, trigger, yvpPublicAppKey: appKey, root: document.getElementById("references-demo") });
+        scriptureInline({ mode, trigger, root: document.getElementById("references-demo") });
       const showReferencesCode = () =>
         showCode("references-code", "html", [
           "<script",
           '  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js"',
-          '  data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"',
-          '  data-yvp-bible-version-id="3034"',
           `  data-mode="${mode}"`,
           ...(mode === "card" && trigger === "hover" ? ['  data-trigger="hover"'] : []),
           "></" + "script>",
@@ -381,7 +452,7 @@ scriptureInline({
       const showPassageCode = () =>
         showCode("layout-code", "html", [
           "<si-passage",
-          `  yvp-bible-version-id="${demo.getAttribute("yvp-bible-version-id")}"`,
+          ...(demo.hasAttribute("bible-version-id") ? [`  bible-version-id="${demo.getAttribute("bible-version-id")}"`] : []),
           `  passage-id="${demo.getAttribute("passage-id")}"`,
           `  reference="${demo.getAttribute("reference")}"`,
           // Only what differs from the defaults.
@@ -421,8 +492,9 @@ scriptureInline({
         showPassageCode();
       });
       const version = document.getElementById("pick-version");
-      version.addEventListener("change", () => {
-        demo.setAttribute("yvp-bible-version-id", version.value);
+      version.addEventListener("change", ({ detail }) => {
+        if (!detail.bibleVersionId) return;
+        demo.setAttribute("bible-version-id", detail.bibleVersionId);
         showPassageCode();
       });
       showPassageCode();
@@ -447,16 +519,26 @@ scriptureInline({
         showInputCode();
       });
       showInputCode();
+
+      // Translation picker: show the chosen provider ID and matching markup.
+      const versionInput = document.getElementById("version-demo");
+      const showVersionCode = () =>
+        showCode("version-code", "html", [
+          `<si-version-input name="translation" value="${versionInput.value || "BSB"}"></si-version-input>`,
+          "<script>",
+          '  document.querySelector("si-version-input").addEventListener("change", (event) => {',
+          "    console.log(event.detail.bibleVersionId);",
+          "  });",
+          "</" + "script>",
+        ]);
+      versionInput.addEventListener("change", ({ detail }) => {
+        document.getElementById("version-value").textContent = detail.bibleVersionId;
+        showVersionCode();
+      });
+      showVersionCode();
       // Every code block is rendered; reveal the page (see the head script).
       delete document.documentElement.dataset.loading;
 
-      // Versions come from the API, so the list matches what the app key can use.
-      const versions = await getVersions(new ApiClient({ appKey }), "en", undefined, {
-        page_size: "*",
-        fields: ["id", "localized_abbreviation", "localized_title"],
-      }).then(({ data }) => data, () => [{ id: 3034, localized_abbreviation: "BSB", localized_title: "Berean Standard Bible" }]);
-      version.replaceChildren(...versions.map((v) => new Option(`${v.localized_abbreviation}, ${v.localized_title}`, String(v.id))));
-      version.value = "3034";
     </script>
   </body>
 </html>
