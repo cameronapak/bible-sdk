@@ -58,7 +58,7 @@
         </p>
         <p>Add one script tag. It registers the components and finds references on the page.</p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js">&lt;/script></textarea>
         </sensible-code>
       </section>
 
@@ -372,7 +372,7 @@ const english = versions.filter((version) => version.language === "en");</textar
         <h2>Switching providers</h2>
         <p>YouVersion is optional. To use it, get a public app key from <a href="https://platform.youversion.com/">platform.youversion.com</a> and select the provider explicitly:</p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js" data-provider="youversion" data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY" data-yvp-bible-version-id="3034">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js" data-provider="youversion" data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY" data-yvp-bible-version-id="3034">&lt;/script></textarea>
         </sensible-code>
         <p>With a bundler, pass <code>{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }</code> to <code>scriptureInline()</code> and <code>defineScripturePassage()</code>. A standalone passage can set <code>provider="youversion"</code> and <code>yvp-public-app-key="YOUR_PUBLIC_APP_KEY"</code>.</p>
         <p><strong>Migration:</strong> Existing YouVersion integrations must add <code>data-provider="youversion"</code>, <code>provider="youversion"</code>, or <code>provider: "youversion"</code>. A public app key alone no longer selects YouVersion. The <code>yvp-*</code> settings and original YouVersion load-event fields remain supported. HelloAO uses translation IDs such as <code>BSB</code>, not YouVersion's numeric IDs.</p>
@@ -424,7 +424,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       const showReferencesCode = () =>
         showCode("references-code", "html", [
           "<script",
-          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js"',
+          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"',
           `  data-mode="${mode}"`,
           ...(mode === "card" && trigger === "hover" ? ['  data-trigger="hover"'] : []),
           "></" + "script>",

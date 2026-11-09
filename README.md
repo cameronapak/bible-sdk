@@ -21,7 +21,7 @@ Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/d
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
 ></script>
 ```
 
@@ -216,7 +216,7 @@ To use YouVersion, get a public app key from [platform.youversion.com](https://p
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.3.2/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-yvp-bible-version-id="3034"
