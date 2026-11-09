@@ -1,20 +1,26 @@
-// Drop-in entry: <script src="scripture-inline.js" data-yvp-public-app-key="..." data-mode="card" data-trigger="hover"></script>
-import { definePassageInput, defineScripturePassage, scriptureInline, type Mode, type ReferenceLayout, type Trigger } from "./index";
+// Drop-in entry: <script src="scripture-inline.js"></script>
+import { definePassageInput, defineVersionInput, defineScripturePassage, scriptureInline, type Mode, type ReferenceLayout, type Trigger, type ProviderOptions } from "./index";
 
 const script = document.currentScript as HTMLScriptElement | null;
 const data = script?.dataset ?? {};
 
-// Pages that load the script can also place <si-passage> and <si-passage-input> themselves.
-// The script's app key is the default for every passage, so they don't repeat it.
-defineScripturePassage({ yvpPublicAppKey: data.yvpPublicAppKey });
+const providerOptions: ProviderOptions = {
+  provider: data.provider as ProviderOptions["provider"],
+  bibleVersionId: data.bibleVersionId,
+  yvpPublicAppKey: data.yvpPublicAppKey,
+  yvpBibleVersionId: data.yvpBibleVersionId ? Number(data.yvpBibleVersionId) : undefined,
+  yvpApiHost: data.yvpApiHost,
+};
+// Script settings are also page-wide defaults for standalone passages.
+defineScripturePassage(providerOptions);
 definePassageInput();
+defineVersionInput();
 
 const run = () =>
   scriptureInline({
-    mode: (data.mode as Mode | undefined) ?? (data.yvpPublicAppKey ? "card" : "link"),
+    mode: (data.mode as Mode | undefined) ?? "card",
     trigger: data.trigger as Trigger | undefined,
-    yvpPublicAppKey: data.yvpPublicAppKey,
-    yvpBibleVersionId: data.yvpBibleVersionId ? Number(data.yvpBibleVersionId) : undefined,
+    ...providerOptions,
     reference: data.reference as ReferenceLayout | undefined,
   });
 

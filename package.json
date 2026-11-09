@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@youversion/platform-core": "^2.16.0",
+    "free-use-bible-api": "^1.16.0",
     "grab-bcv": "^0.1.8"
   },
   "devDependencies": {

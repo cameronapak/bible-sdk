@@ -5,7 +5,7 @@ Drop-in Scripture for any web page. Published as `@faith-tools/scripture-inline`
 Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messages.
 
 ## Commands
-- `amp orb services ensure` - Start the docs and demo page and print its portal. Cards and passages need `VITE_YVP_APP_KEY` in the environment or `.env.local`.
+- `amp orb services ensure` - Start the docs and demo page and print its portal. HelloAO cards and passages need no API key.
 - `pnpm dev` - The same page at http://localhost:5173, outside an orb.
 - `pnpm check` - Typecheck, tests, and build. CI runs this.
 - `pnpm build` - Browser script (`dist/scripture-inline.js`), ES module (`dist/index.js`), and types (`dist/types`).
@@ -13,8 +13,10 @@ Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messa
 
 ## Architecture
 - `src/embed.ts` - Script tag entry. Reads `data-*` attributes and registers everything.
+- `src/providers.ts` - Shared Bible provider contract, default HelloAO adapter, and optional YouVersion adapter.
 - `src/index.ts` - Bundler entry and `scriptureInline()`, the reference finder.
 - `src/scripture-passage.ts` - `<si-passage>`. `src/passage-input.ts` - `<si-passage-input>`.
+- `src/version-input.ts` - `<si-version-input>`, the translation picker using the provider's shared catalog.
 - `src/card.ts` - The popover card. It renders `<si-passage>` inside a shadow root.
 - `index.html` - Docs and demo page, styled with Sensible UI.
 
@@ -30,7 +32,7 @@ Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messa
 
 ## Verifying UI
 - Inspect changes in the browser with `agent-browser` at desktop width and 390px, in light and dark mode. Check that `document.documentElement.scrollWidth` matches the viewport width.
-- A Scripture card needs a real app key. Test the click and hover modes in the Bible references demo.
+- HelloAO Scripture cards need no app key. Test the click and hover modes in the Bible references demo. Only the optional YouVersion provider needs a real public app key.
 
 ## Releasing
 - Merging a PR with a changeset opens or updates the Version Packages PR. Merging that PR publishes to npm with trusted publishing. There is no npm token.

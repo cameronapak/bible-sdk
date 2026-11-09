@@ -1,4 +1,4 @@
-import { ApiClient, getPassageDisplay, type BiblePassageDisplay } from "@youversion/platform-core";
+import { fetchDisplay, resolveProvider, providerDefaults as defaults, type BibleProvider, type PassageDisplay, type ProviderOptions } from "./providers";
 import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
 export const SCRIPTURE_PASSAGE_TAG = "si-passage";
@@ -69,6 +69,22 @@ const STYLES = `
   color: inherit;
   ${ROOT_TOKENS}
 }
+.scripture-root { --scripture-muted: #666; --scripture-red: #a52424; }
+.scripture-root[data-theme="dark"] { --scripture-muted: #aaa; --scripture-red: #ff9090; }
+.scripture-bible {
+  font: var(--scripture-font-size, 20px)/var(--scripture-line-height, 1.625) var(--scripture-font-family, Georgia, serif);
+  max-width: var(--scripture-max-width, 32rem);
+  overflow-wrap: break-word;
+}
+.scripture-bible .scripture-verse-number { font: 0.65em/1 system-ui, sans-serif; color: var(--scripture-muted); }
+.scripture-bible .scripture-heading { display: block; margin: 1em 0 0.5em; font: 600 0.85em/1.5 system-ui, sans-serif; }
+.scripture-bible > .scripture-heading:first-child { margin-top: 0; }
+.scripture-bible .scripture-jesus { color: var(--scripture-red); }
+.scripture-bible .scripture-poetry { display: block; padding-inline-start: calc(var(--indent) * 1em); }
+.scripture-bible .scripture-subtitle { margin: 0 0 0.5em; font-style: italic; }
+:host([verse-numbers="hide"]) .scripture-verse-number { display: none; }
+:host([red-letter="off"]) .scripture-jesus { color: inherit; }
+:host([headings="hide"]) .scripture-heading { display: none; }
 /* Typography comes from --scripture-* properties, which pages set like any CSS. The fallbacks
    are bible.css's own values, except the font: Untitled Serif is YouVersion's Bible typeface,
    but bible.css defaults to Source Serif 4. */
@@ -108,7 +124,7 @@ const STYLES = `
   color: var(--yv-foreground);
 }
 .scripture-root > .scripture-citation:first-child { margin-block: 0 1rem; }
-.scripture-citation > .scripture-version { color: var(--yv-muted-foreground); }
+.scripture-citation > .scripture-version { color: var(--yv-muted-foreground, var(--scripture-muted)); }
 /* The attribution always comes after the text, right under a citation when one follows it. */
 .scripture-attribution {
   all: unset;
@@ -116,7 +132,12 @@ const STYLES = `
   max-width: var(--scripture-max-width, 32rem);
   margin-block-start: 1rem;
   font: 0.75rem/1.5 var(--yv-font-sans, system-ui, sans-serif);
-  color: var(--yv-muted-foreground);
+  color: var(--yv-muted-foreground, var(--scripture-muted));
+}
+.scripture-root .scripture-attribution a { color: inherit; text-decoration: none; text-underline-offset: 0.15em; }
+.scripture-root .scripture-attribution a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .scripture-root .scripture-attribution a:hover { text-decoration: underline; }
 }
 .scripture-citation + .scripture-attribution { margin-block-start: 0; }
 .scripture-quote {
@@ -134,25 +155,6 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 export type ReferenceLayout = "heading" | "citation" | "quote" | "none";
 const LAYOUTS: readonly ReferenceLayout[] = ["heading", "citation", "quote", "none"];
 
-// One request per passage per page, so reopening a card is instant.
-const displays = new Map<string, Promise<BiblePassageDisplay>>();
-
-function fetchDisplay(appKey: string, apiHost: string | undefined, versionId: number, passageId: string) {
-  const key = [apiHost, appKey, versionId, passageId].join("|");
-  let request = displays.get(key);
-  if (!request) {
-    request = getPassageDisplay(new ApiClient({ appKey, apiHost }), {
-      versionId,
-      passageId,
-      includeHeadings: true,
-      includeNotes: false,
-    });
-    request.catch(() => displays.delete(key));
-    displays.set(key, request);
-  }
-  return request;
-}
-
 /**
  * Displays Scripture with its required attribution. Works in the page or inside a shadow root.
  *
@@ -163,11 +165,19 @@ function fetchDisplay(appKey: string, apiHost: string | undefined, versionId: nu
  */
 export class ScripturePassage extends HTMLElement {
   // verse-numbers, red-letter, and headings are pure CSS, so they need no callback.
-  static observedAttributes = ["yvp-public-app-key", "yvp-api-host", "yvp-bible-version-id", "passage-id", "theme", "reference", "direction"];
+  static observedAttributes = ["provider", "bible-version-id", "yvp-public-app-key", "yvp-api-host", "yvp-bible-version-id", "passage-id", "theme", "reference", "direction"];
+
+  private providerOverride?: BibleProvider;
+  /** A custom provider for this passage. The provider attribute takes precedence. */
+  get bibleProvider(): BibleProvider | undefined { return this.providerOverride; }
+  set bibleProvider(provider: BibleProvider | undefined) {
+    this.providerOverride = provider;
+    if (this.isConnected) this.scheduleLoad();
+  }
 
   private generation = 0;
   /** The loaded passage, kept so a layout change re-renders without a request. */
-  private loaded: { display: BiblePassageDisplay; passageId: string } | null = null;
+  private loaded: { display: PassageDisplay; passageId: string } | null = null;
   private scheduled = false;
   private readonly systemDark = matchMedia("(prefers-color-scheme: dark)");
   private readonly onSystemTheme = () => this.applyTheme();
@@ -216,6 +226,7 @@ export class ScripturePassage extends HTMLElement {
     // "light" (default), "dark", or "auto" to follow the system setting.
     const setting = this.getAttribute("theme");
     const theme = setting === "dark" || (setting === "auto" && this.systemDark.matches) ? "dark" : "light";
+    this.root.dataset.theme = theme;
     for (const el of this.root.querySelectorAll("[data-yv-sdk]")) el.setAttribute("data-yv-theme", theme);
   }
 
@@ -233,7 +244,7 @@ export class ScripturePassage extends HTMLElement {
   }
 
   /** Builds the passage, its reference and version in the chosen layout, and its attribution. */
-  private compose(display: BiblePassageDisplay, passageId: string): HTMLElement[] {
+  private compose(display: PassageDisplay, passageId: string): HTMLElement[] {
     const doc = this.ownerDocument;
     // Each piece is also a CSS part, such as si-passage::part(citation).
     const el = (tag: string, className: string, part: string, text?: string) => {
@@ -248,23 +259,24 @@ export class ScripturePassage extends HTMLElement {
 
     const scripture = doc.createElement("section");
     scripture.setAttribute("part", "text");
-    for (const [name, value] of Object.entries(display.containerAttributes)) scripture.setAttribute(name, value);
+    for (const [name, value] of Object.entries(display.containerAttributes ?? {})) scripture.setAttribute(name, value);
     // "ltr" or "rtl" overrides the passage's own direction, like the React SDK's scriptureDirection.
     const direction = this.getAttribute("direction");
-    scripture.setAttribute("dir", direction === "ltr" || direction === "rtl" ? direction : "auto");
+    scripture.setAttribute("dir", direction === "ltr" || direction === "rtl" ? direction : display.direction ?? "auto");
     scripture.innerHTML = display.html;
 
     // The citation carries the reference and version; the layout only moves it.
     const citation = el("p", "scripture-citation", "citation");
-    citation.setAttribute("data-yv-sdk", "");
-    citation.append(reference, " ", el("span", "scripture-version", "version", display.version.localized_abbreviation));
+    if (display.yvpBibleVersion) citation.setAttribute("data-yv-sdk", "");
+    citation.append(reference, " ", el("span", "scripture-version", "version", display.version.abbreviation));
 
     // The attribution always shows, always below the text. It is a license requirement.
     const attribution = el("p", "scripture-attribution", "attribution");
-    attribution.setAttribute("data-yv-sdk", "");
+    if (display.yvpBibleVersion) attribution.setAttribute("data-yv-sdk", "");
     const attributionText = doc.createElement("bdi");
     attributionText.setAttribute("dir", "auto");
-    attributionText.textContent = display.attribution.text;
+    if (display.attributionHtml !== undefined) attributionText.innerHTML = display.attributionHtml;
+    else attributionText.textContent = display.attribution;
     attribution.append(attributionText);
 
     switch (this.referenceLayout) {
@@ -303,13 +315,9 @@ export class ScripturePassage extends HTMLElement {
   }
 
   private async load(generation: number): Promise<void> {
-    const appKey = this.getAttribute("yvp-public-app-key")?.trim() || defaultYvpPublicAppKey;
-    const version = this.getAttribute("yvp-bible-version-id");
     const passageId = this.getAttribute("passage-id")?.trim();
-    const versionId = version && /^[1-9]\d*$/.test(version) ? Number(version) : NaN;
-
-    if (!appKey || !Number.isSafeInteger(versionId) || !passageId) {
-      this.showError("Set an app key, a positive yvp-bible-version-id, and passage-id to display Bible text.");
+    if (!passageId) {
+      this.showError("Set passage-id to display Bible text.");
       return;
     }
 
@@ -320,7 +328,19 @@ export class ScripturePassage extends HTMLElement {
     requestAnimationFrame(() => (loaderPainted = true));
 
     try {
-      const display = await fetchDisplay(appKey, this.getAttribute("yvp-api-host") || undefined, versionId, passageId);
+      const provider = resolveProvider({
+        ...defaults,
+        provider: (this.getAttribute("provider") as ProviderOptions["provider"]) || this.providerOverride || defaults.provider,
+        yvpPublicAppKey: this.getAttribute("yvp-public-app-key")?.trim() || defaults.yvpPublicAppKey,
+        yvpApiHost: this.getAttribute("yvp-api-host") || defaults.yvpApiHost,
+      });
+      const pageVersion = provider === resolveProvider(defaults)
+        ? defaults.bibleVersionId ?? (provider.id === "youversion" ? defaults.yvpBibleVersionId?.toString() : undefined)
+        : undefined;
+      const versionId = this.getAttribute("bible-version-id") ||
+        (provider.id === "youversion" ? this.getAttribute("yvp-bible-version-id") : undefined) ||
+        pageVersion || provider.defaultVersionId;
+      const display = await fetchDisplay(provider, versionId, passageId);
       if (!this.isConnected || generation !== this.generation) return;
 
       // Wait for the Bible CSS and fonts so the text appears styled, at its final height.
@@ -346,17 +366,20 @@ export class ScripturePassage extends HTMLElement {
       this.applyTheme();
       if (loaderPainted) this.growFrom(from, loader);
       this.removeAttribute("aria-busy");
-      this.dispatchEvent(new CustomEvent("scripture-load", { detail: { yvpBibleVersionId: versionId, passageId, yvpBibleVersion: display.version } }));
+      this.dispatchEvent(new CustomEvent("scripture-load", { detail: {
+        provider: provider.id, bibleVersionId: versionId, passageId, bibleVersion: display.version,
+        ...(display.yvpBibleVersion ? { yvpBibleVersionId: Number(versionId), yvpBibleVersion: display.yvpBibleVersion } : {}),
+      } }));
     } catch (error) {
       if (!this.isConnected || generation !== this.generation) return;
-      this.showError("Unable to display Bible text. Check the app key, version, and passage.");
+      this.showError("Unable to display Bible text. Check the provider, version, and passage.");
       this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
     }
   }
 
   /** Resolves once every Bible stylesheet has loaded (or failed, so text still shows). */
-  private installStylesheets(display: BiblePassageDisplay): Promise<unknown> {
-    const loads = display.stylesheets.map(({ kind, href }) => {
+  private installStylesheets(display: PassageDisplay): Promise<unknown> {
+    const loads = (display.stylesheets ?? []).map(({ kind, href }) => {
       // @font-face is ignored inside a shadow root, so fonts always go on the page.
       const target = kind === "font" ? this.ownerDocument.head : this.shadowRoot!;
       const links = target.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
@@ -414,13 +437,9 @@ export class ScripturePassage extends HTMLElement {
   }
 }
 
-/** Register once in a browser entry point. Importing this module does not register it. */
-// The app key passages use when they have no yvp-public-app-key attribute.
-let defaultYvpPublicAppKey: string | undefined;
-
-/** Registers <si-passage>. A yvpPublicAppKey here becomes the page-wide default app key. */
-export function defineScripturePassage({ yvpPublicAppKey }: { yvpPublicAppKey?: string } = {}): void {
-  if (yvpPublicAppKey) defaultYvpPublicAppKey = yvpPublicAppKey;
+/** Registers <si-passage>. Options set page-wide defaults; attributes override them. */
+export function defineScripturePassage(options: ProviderOptions = {}): void {
+  Object.assign(defaults, options);
   if (!customElements.get(SCRIPTURE_PASSAGE_TAG)) customElements.define(SCRIPTURE_PASSAGE_TAG, ScripturePassage);
 }
 

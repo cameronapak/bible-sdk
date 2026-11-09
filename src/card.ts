@@ -1,10 +1,9 @@
 import { formatPassageForDisplay, parsePassage } from "grab-bcv";
 import { SCRIPTURE_PASSAGE_TAG, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
 import css from "./card.css?inline";
+import { resolveProvider, type ProviderOptions } from "./providers";
 
-export type CardOptions = {
-  yvpPublicAppKey: string;
-  yvpBibleVersionId: number;
+export type CardOptions = ProviderOptions & {
   /** How the card's passage shows its reference, as on <si-passage>. */
   reference: ReferenceLayout;
 };
@@ -16,8 +15,10 @@ const MARGIN = 8;
  * One Scripture card per page, rendered in a Shadow DOM so the host page's
  * CSS cannot reach it. `toggle(anchor)` opens it above the anchor.
  */
-export function createScriptureCard({ yvpPublicAppKey, yvpBibleVersionId, reference }: CardOptions) {
+export function createScriptureCard({ reference, ...options }: CardOptions) {
   defineScripturePassage();
+  const provider = resolveProvider(options);
+  const versionId = options.bibleVersionId || (provider.id === "youversion" && options.yvpBibleVersionId ? String(options.yvpBibleVersionId) : provider.defaultVersionId);
 
   const host = document.createElement("scripture-card");
   const shadow = host.attachShadow({ mode: "open" });
@@ -104,8 +105,8 @@ export function createScriptureCard({ yvpPublicAppKey, yvpBibleVersionId, refere
       <div class="body" aria-live="polite"></div>`;
 
     const text = document.createElement(SCRIPTURE_PASSAGE_TAG);
-    text.setAttribute("yvp-public-app-key", yvpPublicAppKey);
-    text.setAttribute("yvp-bible-version-id", String(yvpBibleVersionId));
+    text.bibleProvider = provider;
+    text.setAttribute("bible-version-id", versionId);
     text.setAttribute("passage-id", passageId);
     text.setAttribute("theme", "auto");
     text.setAttribute("reference", reference);

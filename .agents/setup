@@ -16,7 +16,3 @@ pnpm --version
 
 step "Dependencies"
 time pnpm install --frozen-lockfile
-
-if [ -z "${VITE_YVP_APP_KEY:-}" ] && ! grep -qs '^VITE_YVP_APP_KEY=' .env.local; then
-  echo "Note: VITE_YVP_APP_KEY is not set. Cards and passages on the docs page need a public app key."
-fi
