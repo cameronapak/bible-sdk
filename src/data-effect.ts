@@ -46,10 +46,11 @@ export function createScriptureClient({ provider = createHelloAOProvider() }: { 
     listVersions: () => provider.listVersions ? request("custom.listVersions", () => provider.listVersions!(), false) : unsupported(),
     listBooks: unsupported, listChapters: unsupported, getPassageData: unsupported, clearCache: Effect.void,
   };
-  const cache = requestCache();
+  const cache = requestCache(source.cacheTimeToLive);
   const layer = Layer.succeed(BibleSource, {
     id: source.id,
     defaultVersionId: source.defaultVersionId,
+    cacheTimeToLive: source.cacheTimeToLive,
     listVersions: () => cache.get("versions", () => source.listVersions().pipe(Effect.tap(response(Schema.Array(BibleVersion))))),
     listBooks: (id) => cache.get(JSON.stringify(["books", id]), () => source.listBooks(id).pipe(Effect.tap(response(Schema.Array(BibleBook))))),
     listChapters: (id, book) => cache.get(JSON.stringify(["chapters", id, book]), () => source.listChapters(id, book).pipe(Effect.tap(response(Schema.Array(BibleChapter))))),

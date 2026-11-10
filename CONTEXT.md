@@ -1,6 +1,6 @@
 # Bible SDK Context
 
-Bible SDK provides a unified, DOM-free Bible data SDK with optional browser UI. The SDK discovers versions, books, and chapters and returns Scripture with attribution, source limitations, and display guidance. The reference finder and web components add framework-free passages and passage/translation inputs. Bible text comes from HelloAO's Free Use Bible API by default, with optional YouVersion Platform and fetch.bible adapters. The project is independent and not affiliated with YouVersion.
+Bible SDK provides a unified, DOM-free Bible data SDK with optional browser UI. The SDK discovers versions, books, and chapters and returns Scripture with attribution, source limitations, and display guidance. The reference finder and web components add framework-free passages and passage/translation inputs. Bible text comes from HelloAO's Free Use Bible API by default, with optional YouVersion Platform, fetch.bible, and server-only API.Bible adapters. The project is independent and not affiliated with YouVersion.
 
 Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bible-sdk`. New markup uses `bible-sk-passage`, `bible-sk-passage-input`, and `bible-sk-version-input`; registration functions also register their original `si-*` names. Existing tag constants, `scriptureInline()` and other JavaScript exports, attributes, `scripture-*` events, CSS names, and Effect service keys remain compatible. The old browser-script filename is included alongside `bible-sdk.js`.
 
@@ -14,7 +14,7 @@ Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bib
 - **Scripture card** - The popover that shows a passage next to a reference link. It renders a passage inside a shadow root.
 - **Passage** - Scripture for a verse, range, or chapter, returned as data by the SDK or displayed by `<si-passage>`.
 - **Passage ID** - A USFM passage, such as `JHN.3.16`, `ROM.8.28-30`, or a whole chapter, `ROM.8`. Passages can't cross chapters.
-- **Bible data provider** - A source implementing the DOM-free, Effect-native `BibleDataProvider` contract. HelloAO is the key-free default; YouVersion and fetch.bible are explicit choices. IDs remain provider-specific.
+- **Bible data provider** - A source implementing the DOM-free, Effect-native `BibleDataProvider` contract. HelloAO is the key-free default; YouVersion, fetch.bible, and API.Bible are explicit choices. API.Bible is data-only and accepts each application's own official client on its server, never a shared or browser-exposed private key. IDs remain provider-specific.
 - **Display provider** - The compatible `BibleProvider` Promise contract for safe HTML in browser components. Built-ins expose their native data/display Effects through `.effects`; custom data providers need no renderer.
 - **Bible version** - A translation chosen by `bible-version-id`. IDs are provider-specific. HelloAO defaults to `BSB`, the Berean Standard Bible. YouVersion defaults to `3034` and also accepts `yvp-bible-version-id`.
 - **Reference layout** - Where a passage shows its reference: `heading`, `citation`, `quote`, or `none`.

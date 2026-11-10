@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from "effect";
+import { Context, Duration, Effect, Schema } from "effect";
 import type { PassageDisplay } from "./providers.js";
 
 export const BibleVersion = Schema.Struct({
@@ -33,6 +33,15 @@ export const ScripturePassage = Schema.Struct({
   text: Schema.String,
   version: BibleVersion.mapFields((fields) => ({ ...fields, sourceLanguage: Schema.optional(Schema.String) })),
   attribution: Schema.Struct({ text: Schema.NonEmptyString, urls: Schema.Array(Schema.String) }),
+  publisher: Schema.optional(Schema.Struct({
+    copyrightHtml: Schema.String,
+    infoHtml: Schema.String,
+  })),
+  reporting: Schema.optional(Schema.Struct({
+    kind: Schema.Literal("api-bible-fums"),
+    token: Schema.NonEmptyString,
+  })),
+  cache: Schema.optional(Schema.Struct({ expiresAt: Schema.Number })),
   licenses: Schema.Array(Schema.Struct({
     name: Schema.optional(Schema.String), url: Schema.String,
     restrictions: Schema.optional(Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.String]))),
@@ -63,6 +72,8 @@ export type ScripturePassage = typeof ScripturePassage.Type;
 export interface BibleDataProvider {
   readonly id: string;
   readonly defaultVersionId: string;
+  /** Discovery cache lifetime. Omitted preserves the existing unbounded lifetime. */
+  readonly cacheTimeToLive?: Duration.Input;
   listVersions(): Effect.Effect<BibleVersion[], ScriptureError>;
   listBooks(versionId: string): Effect.Effect<BibleBook[], ScriptureError>;
   listChapters(versionId: string, bookId: string): Effect.Effect<BibleChapter[], ScriptureError>;
