@@ -354,7 +354,7 @@ const passage = await Effect.runPromise(program);</textarea>
         <sensible-code language="html" data-wrap="true">
           <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js">&lt;/script></textarea>
         </sensible-code>
-        <details>
+        <details id="setup">
           <summary>Migrating from Scripture Inline</summary>
           <div class="stack">
             <p>Bible SDK is the new name for Scripture Inline. Replace <code>@faith-tools/scripture-inline</code> with <code>@faith-tools/bible-sdk</code> in your dependencies and imports, keeping <code>/data</code>, <code>/data/effect</code>, and <code>/providers/*</code> subpaths. For script tags, update the package URL and use <code>dist/bible-sdk.js</code>; <code>dist/scripture-inline.js</code> remains an identical compatibility copy in the new package. Load only one script.</p>
