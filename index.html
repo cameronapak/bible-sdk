@@ -251,7 +251,7 @@ scriptureInline({ provider });</textarea>
             <p>Script tags support HelloAO by default and YouVersion through explicit settings:</p>
             <sensible-code language="html" data-wrap="true">
               <textarea readonly><script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -398,7 +398,7 @@ const passage = await Effect.runPromise(program);</textarea>
           To use another source, <a href="#providers">choose a provider</a>.
         </p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js">&lt;/script></textarea>
         </sensible-code>
         <details id="setup">
           <summary>Migrating from Scripture Inline</summary>
@@ -825,7 +825,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       const showReferencesCode = () =>
         showCode("references-code", "html", [
           "<script",
-          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"',
+          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"',
           `  data-mode="${mode}"`,
           ...(mode === "card" && trigger === "hover" ? ['  data-trigger="hover"'] : []),
           "></" + "script>",
