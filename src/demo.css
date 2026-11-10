@@ -33,7 +33,7 @@ details:not([open])::details-content { visibility: hidden; }
 }
 
 /* Sensible UI spaces a label above a following input or select; give the passage input the same. */
-label:has(+ si-passage-input, + si-version-input) {
+label:has(+ si-passage-input, + si-version-input, + bible-sk-passage-input, + bible-sk-version-input) {
   padding-bottom: 0.5rem;
 }
 

@@ -12,6 +12,7 @@ import {
 } from "grab-bcv";
 
 export const PASSAGE_INPUT_TAG = "si-passage-input";
+export const BIBLE_PASSAGE_INPUT_TAG = "bible-sk-passage-input";
 
 // Shadow DOM, so page CSS can't restyle the field or its list. The wrapper resets what the
 // host inherits. The field reads the page's design tokens (--input, --ring, --radius, and
@@ -484,10 +485,12 @@ export class ScripturePassageInput extends HTMLElement {
 /** Register once in a browser entry point. Importing this module does not register it. */
 export function definePassageInput(): void {
   if (!customElements.get(PASSAGE_INPUT_TAG)) customElements.define(PASSAGE_INPUT_TAG, ScripturePassageInput);
+  if (!customElements.get(BIBLE_PASSAGE_INPUT_TAG)) customElements.define(BIBLE_PASSAGE_INPUT_TAG, class extends ScripturePassageInput {});
 }
 
 declare global {
   interface HTMLElementTagNameMap {
     "si-passage-input": ScripturePassageInput;
+    "bible-sk-passage-input": ScripturePassageInput;
   }
 }

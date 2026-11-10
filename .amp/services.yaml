@@ -5,5 +5,5 @@ services:
     port: 5173
     health: /
     portal:
-      title: Scripture Inline docs
+      title: Bible SDK docs
       description: Docs and live demos using HelloAO. No Bible API key required.

@@ -1,4 +1,4 @@
-// Drop-in entry: <script src="scripture-inline.js"></script>
+// Drop-in entry: <script src="bible-sdk.js"></script> (scripture-inline.js remains compatible).
 import { definePassageInput, defineVersionInput, defineScripturePassage, scriptureInline, type Mode, type ReferenceLayout, type Trigger, type ProviderOptions } from "./index";
 
 const script = document.currentScript as HTMLScriptElement | null;

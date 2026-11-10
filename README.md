@@ -1,4 +1,4 @@
-# Scripture Inline
+# Bible SDK
 
 A unified Bible data SDK, with optional drop-in Scripture components for web pages.
 
@@ -9,9 +9,17 @@ Choose the surface your application needs:
 - **[Bible data SDK](#bible-data-sdk):** Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. Use async/await or native Effect v4 without a DOM.
 - **[Browser components](#getting-started):** Display passages, choose passages and translations, or turn Bible references into Scripture cards. No framework is required.
 
-Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Scripture Inline is an independent community project, not affiliated with YouVersion or Life.Church.
+Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
 
-> Scripture Inline is in preview. Expect changes before 1.0.
+> Bible SDK is in preview. Expect changes before 1.0.
+
+## Migrating from Scripture Inline
+
+Bible SDK is the new name for Scripture Inline. Replace `@faith-tools/scripture-inline` with `@faith-tools/bible-sdk` in your dependencies and imports, keeping `/data`, `/data/effect`, and `/providers/*` subpaths. For script tags, update the package URL and use `dist/bible-sdk.js`; `dist/scripture-inline.js` remains an identical compatibility copy in the new package. Load only one script.
+
+New markup uses `<bible-sk-passage>`, `<bible-sk-passage-input>`, and `<bible-sk-version-input>`. Their original `si-*` names remain supported, and both names can coexist on a page. Registration functions register both names. Existing tag constants still return the old names; `BIBLE_PASSAGE_TAG`, `BIBLE_PASSAGE_INPUT_TAG`, and `BIBLE_VERSION_INPUT_TAG` return the new names. If you rename your markup, update matching CSS selectors and DOM queries too.
+
+Attributes (including `data-scripture-inline-ignore`), `scriptureInline()` and other JavaScript exports, `scripture-*` events, and CSS classes and custom properties remain compatible. Existing pinned old-package CDN URLs continue to use their original release; they do not automatically upgrade or register the new tags.
 
 ## Bible data SDK
 
@@ -20,11 +28,11 @@ The data SDK works in a browser, Node, or Bun without components, DOM access, CS
 Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.
 
 ```sh
-pnpm add @faith-tools/scripture-inline
+pnpm add @faith-tools/bible-sdk
 ```
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const versions = await scripture.listVersions();
@@ -48,7 +56,7 @@ The same discovery and passage example, composed as one Effect program:
 
 ```ts
 import { Effect } from "effect";
-import { createScriptureClient } from "@faith-tools/scripture-inline/data/effect";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data/effect";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const program = Effect.gen(function*() {
@@ -76,7 +84,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
 ></script>
 ```
 
@@ -97,14 +105,14 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | `data-mode` / `mode` | `card` | `card` opens a Scripture card. `link` links to route.bible. |
 | `data-trigger` / `trigger` | `click` | `hover` also opens cards on mouse hover. |
 | `data-yvp-bible-version-id` / `yvpBibleVersionId` | `3034` | YouVersion-only alias. `bibleVersionId` takes precedence. |
-| `data-reference` / `reference` | `heading` | The card's reference layout, as on `<si-passage>`. |
+| `data-reference` / `reference` | `heading` | The card's reference layout, as on `<bible-sk-passage>`. |
 | `root` | Whole page | The element to look for references in. Leave it unset on sites that replace `<body>`. JavaScript only. |
 | `watch` | `true` | Also links references in content added later, such as pages that Turbo swaps in. `false` scans once. JavaScript only. |
 
-## `<si-passage>`
+## `<bible-sk-passage>`
 
 ```html
-<si-passage passage-id="JHN.3.16"></si-passage>
+<bible-sk-passage passage-id="JHN.3.16"></bible-sk-passage>
 ```
 
 | Attribute | Default | Purpose |
@@ -125,7 +133,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 Attributes choose what the passage shows. CSS properties choose how it looks, so one rule can style every passage on a page:
 
 ```css
-si-passage {
+bible-sk-passage {
   --scripture-font-size: 18px;
   --scripture-max-width: 40rem;
 }
@@ -138,7 +146,7 @@ si-passage {
 | `--scripture-font-family` | Georgia (HelloAO), Untitled Serif (YouVersion) | Font of the Bible text. |
 | `--scripture-max-width` | `32rem` | Line length of the text, reference, and copyright. |
 
-The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `si-passage::part(citation) { font-style: italic; }`.
+The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `bible-sk-passage::part(citation) { font-style: italic; }`.
 
 | Part | What it is |
 | --- | --- |
@@ -155,12 +163,12 @@ The passage renders in a shadow root, so page CSS can't change it by accident. T
 | `scripture-load` | `provider`, `passageId`, `bibleVersionId`, `bibleVersion` | The passage is on screen. `bibleVersion` has `id`, `abbreviation`, and `title`. YouVersion also includes the original `yvpBibleVersionId` and `yvpBibleVersion`. |
 | `scripture-error` | The error | The passage could not load. |
 
-## `<si-passage-input>`
+## `<bible-sk-passage-input>`
 
 ```html
 <form>
   <label for="passage">Passage</label>
-  <si-passage-input id="passage" name="passage" placeholder="Romans 8 or John 3:16"></si-passage-input>
+  <bible-sk-passage-input id="passage" name="passage" placeholder="Romans 8 or John 3:16"></bible-sk-passage-input>
 </form>
 ```
 
@@ -178,23 +186,23 @@ Use the field to choose a book, chapter, verse, or range. Focus the empty field 
 | --- | --- | --- |
 | `change` | `passageId`, `label` | The reader picks a passage or clears the field. `passageId` is empty when cleared. |
 
-The field renders in a shadow root. It reads the page's `--input`, `--ring`, `--radius`, `--popover`, `--accent`, and `--font-sans` tokens when they exist. To restyle it further, use its parts: `input`, `listbox`, `option`, and `count`, such as `si-passage-input::part(input) { height: 2.5rem; }`.
+The field renders in a shadow root. It reads the page's `--input`, `--ring`, `--radius`, `--popover`, `--accent`, and `--font-sans` tokens when they exist. To restyle it further, use its parts: `input`, `listbox`, `option`, and `count`, such as `bible-sk-passage-input::part(input) { height: 2.5rem; }`.
 
 To show the picked passage:
 
 ```js
-const input = document.querySelector("si-passage-input");
-const passage = document.querySelector("si-passage");
+const input = document.querySelector("bible-sk-passage-input");
+const passage = document.querySelector("bible-sk-passage");
 input.addEventListener("change", (event) => {
   if (event.detail.passageId) passage.setAttribute("passage-id", event.detail.passageId);
 });
 ```
 
-## `<si-version-input>`
+## `<bible-sk-version-input>`
 
 ```html
 <label for="translation">Translation</label>
-<si-version-input id="translation" name="translation" value="BSB"></si-version-input>
+<bible-sk-version-input id="translation" name="translation" value="BSB"></bible-sk-version-input>
 ```
 
 Search translations by name or abbreviation and filter by language. The field starts with the selected translation's language, or the browser's language. Typing does not change the selection until you choose a translation.
@@ -223,8 +231,8 @@ The `value` property reads or sets the selected ID. `bibleVersion` has `id`, `ab
 To connect the picker to a passage using the same provider:
 
 ```js
-document.querySelector("si-version-input").addEventListener("change", (event) => {
-  document.querySelector("si-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
+document.querySelector("bible-sk-version-input").addEventListener("change", (event) => {
+  document.querySelector("bible-sk-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
 });
 ```
 
@@ -235,11 +243,11 @@ The field uses the same page style tokens as the passage input. Its parts are `l
 If you use a bundler, install the package and register the browser components you need:
 
 ```sh
-npm install @faith-tools/scripture-inline
+npm install @faith-tools/bible-sdk
 ```
 
 ```js
-import { defineScripturePassage, definePassageInput, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
+import { defineScripturePassage, definePassageInput, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
 
 defineScripturePassage();
 definePassageInput();
@@ -250,18 +258,18 @@ scriptureInline({ root: document.querySelector("article") });
 | Export | Purpose |
 | --- | --- |
 | `scriptureInline(options)` | Finds and links references. Takes the [Bible references](#bible-references) options and returns `{ links, stop }`. `stop()` restores the plain text. |
-| `defineScripturePassage(options)` | Registers `<si-passage>`. Accepts the provider options above as page-wide defaults. Passage attributes override them. |
+| `defineScripturePassage(options)` | Registers `<bible-sk-passage>` and `<si-passage>`. Accepts the provider options above as page-wide defaults. Passage attributes override them. |
 | `helloaoProvider` | The default provider, using the `free-use-bible-api` SDK. |
 | `createYouVersionProvider({ yvpPublicAppKey, yvpApiHost })` | Creates the optional YouVersion provider. |
-| `definePassageInput()` | Registers `<si-passage-input>`. |
-| `defineVersionInput(options)` | Registers `<si-version-input>`. Shares provider defaults with `defineScripturePassage()`. |
+| `definePassageInput()` | Registers `<bible-sk-passage-input>` and `<si-passage-input>`. |
+| `defineVersionInput(options)` | Registers `<bible-sk-version-input>` and `<si-version-input>`. Shares provider defaults with `defineScripturePassage()`. |
 | `listBibleVersions(options)` | Returns the provider's catalog as `Promise<BibleVersion[]>`. Accepts provider options; caches successful requests. |
 | `findReferences(text)` | Returns the references in a string, without touching the page. |
 
 Use the shared catalog for your own controls, too:
 
 ```js
-import { listBibleVersions } from "@faith-tools/scripture-inline";
+import { listBibleVersions } from "@faith-tools/bible-sdk";
 
 const versions = await listBibleVersions(); // HelloAO, unless page defaults select another provider
 const english = versions.filter((version) => version.language === "en");
@@ -284,20 +292,20 @@ Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interch
 ### HelloAO: use the default
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // Default BSB
 const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);
 ```
 
-HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/scripture-inline/providers/helloao`.
+HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/bible-sdk/providers/helloao`.
 
 ### fetch.bible: declare your usage
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const scripture = createScriptureClient({
   provider: createFetchBibleProvider({ usage: { commercial: false } }),
@@ -313,8 +321,8 @@ Set `usage.commercial` to your application's actual use. The example declares no
 Get a public app key from [YouVersion Platform](https://platform.youversion.com/). Replace `YOUR_PUBLIC_APP_KEY` in this example:
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createYouVersionProvider } from "@faith-tools/bible-sdk/providers/youversion";
 
 const scripture = createScriptureClient({
   provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
@@ -339,8 +347,8 @@ These requirements also appear in returned YouVersion `instructions`.
 With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:
 
 ```js
-import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const provider = createFetchBibleProvider({ usage: { commercial: false } });
 defineScripturePassage({ provider });
@@ -354,7 +362,7 @@ Script tags support HelloAO by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -367,7 +375,7 @@ All built-in display providers add linked source credits. The fetch.bible adapte
 
 ### Build a custom display provider
 
-Implement the exported `BibleProvider` interface with `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. Return safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. Optional fields are safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Providers must sanitize both HTML fields; Scripture Inline inserts them into the shadow root.
+Implement the exported `BibleProvider` interface with `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. Return safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. Optional fields are safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Providers must sanitize both HTML fields; Bible SDK inserts them into the shadow root.
 
 Pass the object as `provider` to `defineScripturePassage()` or `scriptureInline()`, or assign it to a passage's `bibleProvider` property. A passage's `provider` attribute takes precedence.
 
@@ -434,7 +442,7 @@ An overlapping range does not establish why a particular verse is empty. Psalm r
 Async methods reject with the original `ScriptureError` for expected failures. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error remains in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. Programming defects are not converted to expected errors.
 
 ```ts
-import { createScriptureClient, ScriptureError } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient, ScriptureError } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient();
 try {
@@ -462,7 +470,7 @@ Named spans connect client operations, provider operations, and upstream request
 
 ```ts
 import { Effect } from "effect";
-import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data/effect";
+import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/bible-sdk/data/effect";
 
 const client = createScriptureClient();
 const program = scripture.getPassage({ passageId: "JHN.3.16" }).pipe(

@@ -49,8 +49,8 @@ it("resets to the configured page version while keeping same-ID providers isolat
   expect(picker.value).toBe("spa_rv");
 });
 
-it("filters names and languages, committing only a picked translation with provider-scoped metadata", async () => {
-  const picker = document.createElement("si-version-input");
+it.each(["si-version-input", "bible-sk-version-input"] as const)("%s filters names and languages, committing only a picked translation with provider-scoped metadata", async (tag) => {
+  const picker = document.createElement(tag);
   picker.bibleProvider = provider(async () => versions);
   const loaded = nextEvent(picker);
   document.body.append(picker);

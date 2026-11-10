@@ -4,6 +4,7 @@ import { listen, nextFrame, waitForEvent } from "./dom-runtime";
 import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
 export const SCRIPTURE_PASSAGE_TAG = "si-passage";
+export const BIBLE_PASSAGE_TAG = "bible-sk-passage";
 
 // The tokens bible.css declares on ":root, :host", with its defaults, copied from
 // https://cdn.youversion.com/platform/1/bible.css. Inside the shadow root that rule matches
@@ -442,14 +443,16 @@ export class ScripturePassage extends HTMLElement {
   }
 }
 
-/** Registers <si-passage>. Options set page-wide defaults; attributes override them. */
+/** Registers <bible-sk-passage> and its <si-passage> compatibility name. */
 export function defineScripturePassage(options: ProviderOptions = {}): void {
   Object.assign(defaults, options);
   if (!customElements.get(SCRIPTURE_PASSAGE_TAG)) customElements.define(SCRIPTURE_PASSAGE_TAG, ScripturePassage);
+  if (!customElements.get(BIBLE_PASSAGE_TAG)) customElements.define(BIBLE_PASSAGE_TAG, class extends ScripturePassage {});
 }
 
 declare global {
   interface HTMLElementTagNameMap {
     "si-passage": ScripturePassage;
+    "bible-sk-passage": ScripturePassage;
   }
 }

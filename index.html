@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scripture Inline</title>
+    <title>Bible SDK</title>
+    <meta name="description" content="A unified Bible data SDK with async and Effect APIs, plus optional drop-in Scripture web components." />
+    <link rel="canonical" href="https://bible-sdk.com/" />
     <!-- A head stylesheet blocks first paint, so the page never shows unstyled. -->
     <link rel="stylesheet" href="/src/demo.css" />
     <script>
@@ -52,10 +54,10 @@
       <header class="stack">
         <div class="split">
           <div class="cluster">
-            <h1>Scripture Inline</h1>
+            <h1>Bible SDK</h1>
             <span class="badge" data-variant="secondary">Preview</span>
           </div>
-          <a class="button" data-variant="ghost" data-size="icon" href="https://github.com/cameronapak/scripture-inline" aria-label="Scripture Inline on GitHub" title="GitHub">
+          <a class="button" data-variant="ghost" data-size="icon" href="https://github.com/cameronapak/bible-sdk" aria-label="Bible SDK on GitHub" title="GitHub">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
           </a>
         </div>
@@ -80,10 +82,10 @@
         <p>Import <code>/data</code> for async/await, or <a href="#native-effect"><code>/data/effect</code></a> for native Effect programs. Both use the same Effect v4 implementation, validation, errors, and caching. HelloAO is the default; <a href="#providers">choose a provider</a> to use fetch.bible or YouVersion.</p>
         <p>Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.</p>
         <sensible-code language="sh" data-wrap="true">
-          <textarea readonly>pnpm add @faith-tools/scripture-inline</textarea>
+          <textarea readonly>pnpm add @faith-tools/bible-sdk</textarea>
         </sensible-code>
         <sensible-code language="js" data-wrap="true">
-          <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+          <textarea readonly>import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const versions = await scripture.listVersions();
@@ -102,7 +104,7 @@ console.log(passage.instructions);</textarea>
         <p>The same discovery and passage example, composed as one Effect program:</p>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>import { Effect } from "effect";
-import { createScriptureClient } from "@faith-tools/scripture-inline/data/effect";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data/effect";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const program = Effect.gen(function*() {
@@ -142,21 +144,21 @@ await Effect.runPromise(program);</textarea>
           <summary>HelloAO: use the default</summary>
           <div class="stack">
             <sensible-code language="js" data-wrap="true">
-              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // Default BSB
 const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);</textarea>
             </sensible-code>
-            <p>HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import <code>createHelloAOProvider</code> from <code>@faith-tools/scripture-inline/providers/helloao</code>.</p>
+            <p>HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import <code>createHelloAOProvider</code> from <code>@faith-tools/bible-sdk/providers/helloao</code>.</p>
           </div>
         </details>
         <details>
           <summary>fetch.bible: declare your usage</summary>
           <div class="stack">
             <sensible-code language="js" data-wrap="true">
-              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const scripture = createScriptureClient({
   provider: createFetchBibleProvider({ usage: { commercial: false } }),
@@ -172,8 +174,8 @@ console.log(passage.text, passage.attribution);</textarea>
           <div class="stack">
             <p>Get a public app key from <a href="https://platform.youversion.com/">YouVersion Platform</a>. Replace <code>YOUR_PUBLIC_APP_KEY</code> in this example:</p>
             <sensible-code language="js" data-wrap="true">
-              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createYouVersionProvider } from "@faith-tools/bible-sdk/providers/youversion";
 
 const scripture = createScriptureClient({
   provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
@@ -197,8 +199,8 @@ console.log(passage.text, passage.attribution);</textarea>
           <div class="stack">
             <p>With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:</p>
             <sensible-code language="js" data-wrap="true">
-              <textarea readonly>import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+              <textarea readonly>import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const provider = createFetchBibleProvider({ usage: { commercial: false } });
 defineScripturePassage({ provider });
@@ -209,7 +211,7 @@ scriptureInline({ provider });</textarea>
             <p>Script tags support HelloAO by default and YouVersion through explicit settings:</p>
             <sensible-code language="html" data-wrap="true">
               <textarea readonly><script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -314,7 +316,7 @@ scriptureInline({ provider });</textarea>
         <p>Named spans connect SDK, provider, and request operations to your application's Effect tracer. The SDK does not choose a telemetry backend or export to a hosted service. Inject providers through the <code>BibleSource</code> service and Layers for deterministic tests:</p>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>import { Effect } from "effect";
-import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data/effect";
+import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/bible-sdk/data/effect";
 
 const client = createScriptureClient();
 const program = scripture.getPassage({ passageId: "JHN.3.16" }).pipe(
@@ -350,8 +352,16 @@ const passage = await Effect.runPromise(program);</textarea>
           To use another source, <a href="#providers">choose a provider</a>.
         </p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js">&lt;/script></textarea>
         </sensible-code>
+        <details>
+          <summary>Migrating from Scripture Inline</summary>
+          <div class="stack">
+            <p>Bible SDK is the new name for Scripture Inline. Replace <code>@faith-tools/scripture-inline</code> with <code>@faith-tools/bible-sdk</code> in your dependencies and imports, keeping <code>/data</code>, <code>/data/effect</code>, and <code>/providers/*</code> subpaths. For script tags, update the package URL and use <code>dist/bible-sdk.js</code>; <code>dist/scripture-inline.js</code> remains an identical compatibility copy in the new package. Load only one script.</p>
+            <p>New markup uses <code>&lt;bible-sk-passage&gt;</code>, <code>&lt;bible-sk-passage-input&gt;</code>, and <code>&lt;bible-sk-version-input&gt;</code>. Their original <code>si-*</code> names remain supported, and both names can coexist on a page. Registration functions register both names. Existing tag constants still return the old names; <code>BIBLE_PASSAGE_TAG</code>, <code>BIBLE_PASSAGE_INPUT_TAG</code>, and <code>BIBLE_VERSION_INPUT_TAG</code> return the new names. If you rename your markup, update matching CSS selectors and DOM queries too.</p>
+            <p>Attributes (including <code>data-scripture-inline-ignore</code>), <code>scriptureInline()</code> and other JavaScript exports, <code>scripture-*</code> events, and CSS classes and custom properties remain compatible. Existing pinned old-package CDN URLs continue to use their original release; they do not automatically upgrade or register the new tags.</p>
+          </div>
+        </details>
       </section>
 
       <section class="stack" id="references">
@@ -402,7 +412,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><td><code>data-mode</code><br /><code>mode</code></td><td><code>card</code></td><td><code>card</code> opens a Scripture card; <code>link</code> links to route.bible.</td></tr>
             <tr><td><code>data-trigger</code><br /><code>trigger</code></td><td><code>click</code></td><td><code>hover</code> also opens cards on mouse hover.</td></tr>
             <tr><td><code>data-yvp-bible-version-id</code><br /><code>yvpBibleVersionId</code></td><td><code>3034</code></td><td>YouVersion-only alias. <code>bibleVersionId</code> takes precedence.</td></tr>
-            <tr><td><code>data-reference</code><br /><code>reference</code></td><td><code>heading</code></td><td>The card's reference layout, as on <a href="#passage">si-passage</a>.</td></tr>
+            <tr><td><code>data-reference</code><br /><code>reference</code></td><td><code>heading</code></td><td>The card's reference layout, as on <a href="#passage">bible-sk-passage</a>.</td></tr>
             <tr><td><code>root</code></td><td>Whole page</td><td>The element to look for references in. Leave it unset on sites that replace <code>&lt;body&gt;</code>.</td></tr>
             <tr><td><code>watch</code></td><td><code>true</code></td><td>Also links references in content added later, such as pages that Turbo swaps in. <code>false</code> scans once. Mark content that a framework like React renders with <code>data-scripture-inline-ignore</code>.</td></tr>
           </tbody>
@@ -415,7 +425,7 @@ const passage = await Effect.runPromise(program);</textarea>
       <section class="stack" id="passage">
         <h2>Passage</h2>
         <p>
-          <code>&lt;si-passage&gt;</code> displays a passage with its required copyright attribution. Attributes choose what
+          <code>&lt;bible-sk-passage&gt;</code> displays a passage with its required copyright attribution. Attributes choose what
           shows. CSS properties choose how it looks, so one rule can style every passage on a page.
         </p>
         <div class="demo stack">
@@ -427,8 +437,8 @@ const passage = await Effect.runPromise(program);</textarea>
             <button type="button" data-size="sm" data-variant="outline" data-value="none" aria-pressed="false">None</button>
           </div>
           <div class="auto-grid" style="--min-item-size: 14rem" id="passage-picker">
-            <div><label for="pick-passage">Passage</label><si-passage-input id="pick-passage" value="JHN.3.16" placeholder="Romans 8 or John 3:16"></si-passage-input></div>
-            <div><label for="pick-version">Translation</label><si-version-input id="pick-version" value="BSB"></si-version-input></div>
+            <div><label for="pick-passage">Passage</label><bible-sk-passage-input id="pick-passage" value="JHN.3.16" placeholder="Romans 8 or John 3:16"></bible-sk-passage-input></div>
+            <div><label for="pick-version">Translation</label><bible-sk-version-input id="pick-version" value="BSB"></bible-sk-version-input></div>
           </div>
           <div class="cluster" id="content-switches">
             <label><input type="checkbox" role="switch" data-attribute="verse-numbers" data-off="hide" checked />Verse numbers</label>
@@ -458,7 +468,7 @@ const passage = await Effect.runPromise(program);</textarea>
             </div>
           </div>
           </div>
-          <si-passage id="layout-demo" passage-id="JHN.3.16" reference="heading" theme="auto"></si-passage>
+          <bible-sk-passage id="layout-demo" passage-id="JHN.3.16" reference="heading" theme="auto"></bible-sk-passage>
         </div>
         <div id="layout-code"></div>
         <details>
@@ -500,7 +510,7 @@ const passage = await Effect.runPromise(program);</textarea>
         </div>
         <p>
           The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose,
-          use a CSS part, such as <code>si-passage::part(citation) { font-style: italic; }</code>.
+          use a CSS part, such as <code>bible-sk-passage::part(citation) { font-style: italic; }</code>.
         </p>
         <div class="table-scroll">
         <table>
@@ -536,14 +546,14 @@ const passage = await Effect.runPromise(program);</textarea>
       <section class="stack" id="passage-input">
         <h2>Passage input</h2>
         <p>
-          Use <code>&lt;si-passage-input&gt;</code> to choose a book, chapter, verse, or range.
+          Use <code>&lt;bible-sk-passage-input&gt;</code> to choose a book, chapter, verse, or range.
           Focus the empty field to browse every book. Type "Roman 8" to find Romans 8, or "Ps 119:" to list its 176 verses.
           The field stores a passage ID and submits it under <code>name</code>.
         </p>
         <div class="demo stack">
           <div>
             <label for="input-demo">Passage</label>
-            <si-passage-input id="input-demo" name="passage" placeholder="Romans 8 or John 3:16"></si-passage-input>
+            <bible-sk-passage-input id="input-demo" name="passage" placeholder="Romans 8 or John 3:16"></bible-sk-passage-input>
           </div>
           <label><input type="checkbox" role="switch" id="input-order" />Books A to Z</label>
           <p>Value: <code id="input-value">(empty)</code></p>
@@ -580,7 +590,7 @@ const passage = await Effect.runPromise(program);</textarea>
           The field renders in a shadow root. It reads the page's <code>--input</code>, <code>--ring</code>,
           <code>--radius</code>, <code>--popover</code>, <code>--accent</code>, and <code>--font-sans</code> tokens when
           they exist. To restyle it further, use its parts: <code>input</code>, <code>listbox</code>, <code>option</code>,
-          and <code>count</code>, such as <code>si-passage-input::part(input) { height: 2.5rem; }</code>.
+          and <code>count</code>, such as <code>bible-sk-passage-input::part(input) { height: 2.5rem; }</code>.
         </p>
           </div>
         </details>
@@ -588,11 +598,11 @@ const passage = await Effect.runPromise(program);</textarea>
 
       <section class="stack" id="version-input">
         <h2>Translation picker</h2>
-        <p>Use <code>&lt;si-version-input&gt;</code> to search translations by name or abbreviation and filter by language. The field stores the selected provider's translation ID. Typing does not change the selection until you choose a translation.</p>
+        <p>Use <code>&lt;bible-sk-version-input&gt;</code> to search translations by name or abbreviation and filter by language. The field stores the selected provider's translation ID. Typing does not change the selection until you choose a translation.</p>
         <div class="demo stack">
           <div>
             <label for="version-demo">Translation</label>
-            <si-version-input id="version-demo" name="translation" value="BSB"></si-version-input>
+            <bible-sk-version-input id="version-demo" name="translation" value="BSB"></bible-sk-version-input>
           </div>
           <p>Value: <code id="version-value">BSB</code></p>
         </div>
@@ -629,8 +639,8 @@ const passage = await Effect.runPromise(program);</textarea>
         <p>The <code>value</code> property reads or sets the selected ID. <code>bibleVersion</code> has <code>id</code>, <code>abbreviation</code>, <code>title</code>, and optional <code>language</code> and <code>languageName</code>. An unavailable ID clears the field and marks it invalid. IDs belong to one provider, not a universal catalog. HelloAO's <code>BSB</code> and YouVersion's <code>3034</code> both name the Berean Standard Bible, but matching names or abbreviations do not guarantee identical editions.</p>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>// Connect a picker and passage using the same provider.
-document.querySelector("si-version-input").addEventListener("change", (event) => {
-  document.querySelector("si-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
+document.querySelector("bible-sk-version-input").addEventListener("change", (event) => {
+  document.querySelector("bible-sk-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
 });</textarea>
         </sensible-code>
         <p>The field uses the same page style tokens as the passage input. Its parts are <code>language</code>, <code>input</code>, <code>listbox</code>, <code>option</code>, <code>status</code>, and <code>retry</code>.</p>
@@ -640,14 +650,14 @@ document.querySelector("si-version-input").addEventListener("change", (event) =>
 
       <section class="stack" id="javascript">
         <h2>JavaScript setup</h2>
-        <p>If you use a bundler, install <code>@faith-tools/scripture-inline</code> and register the components you need. The following example also finds references inside an <code>article</code> element:</p>
+        <p>If you use a bundler, install <code>@faith-tools/bible-sdk</code> and register the components you need. The following example also finds references inside an <code>article</code> element:</p>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>import {
   definePassageInput,
   defineScripturePassage,
   defineVersionInput,
   scriptureInline,
-} from "@faith-tools/scripture-inline";
+} from "@faith-tools/bible-sdk";
 
 defineScripturePassage();
 definePassageInput();
@@ -668,11 +678,11 @@ scriptureInline({
           </thead>
           <tbody>
             <tr><td><code>scriptureInline(options)</code></td><td>Finds and links references. Takes the <a href="#references">Bible references</a> options and returns <code>{ links, stop }</code>; <code>stop()</code> restores the plain text.</td></tr>
-            <tr><td><code>defineScripturePassage(options)</code></td><td>Registers <code>&lt;si-passage&gt;</code>. Provider options set page-wide defaults; attributes override them.</td></tr>
+            <tr><td><code>defineScripturePassage(options)</code></td><td>Registers <code>&lt;bible-sk-passage&gt;</code> and <code>&lt;si-passage&gt;</code>. Provider options set page-wide defaults; attributes override them.</td></tr>
             <tr><td><code>helloaoProvider</code></td><td>The default provider, using the <code>free-use-bible-api</code> SDK.</td></tr>
             <tr><td><code>createYouVersionProvider({ yvpPublicAppKey, yvpApiHost })</code></td><td>Creates the optional YouVersion provider.</td></tr>
-            <tr><td><code>definePassageInput()</code></td><td>Registers <code>&lt;si-passage-input&gt;</code>.</td></tr>
-            <tr><td><code>defineVersionInput(options)</code></td><td>Registers <code>&lt;si-version-input&gt;</code>. Shares provider defaults with <code>defineScripturePassage()</code>.</td></tr>
+            <tr><td><code>definePassageInput()</code></td><td>Registers <code>&lt;bible-sk-passage-input&gt;</code> and <code>&lt;si-passage-input&gt;</code>.</td></tr>
+            <tr><td><code>defineVersionInput(options)</code></td><td>Registers <code>&lt;bible-sk-version-input&gt;</code> and <code>&lt;si-version-input&gt;</code>. Shares provider defaults with <code>defineScripturePassage()</code>.</td></tr>
             <tr><td><code>listBibleVersions(options)</code></td><td>Returns the provider's catalog as <code>Promise&lt;BibleVersion[]&gt;</code>. Accepts provider options; caches successful requests.</td></tr>
             <tr><td><code>findReferences(text)</code></td><td>Returns the references in a string, without touching the page.</td></tr>
           </tbody>
@@ -680,7 +690,7 @@ scriptureInline({
         </div>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>// Use the shared catalog for your own controls.
-import { listBibleVersions } from "@faith-tools/scripture-inline";
+import { listBibleVersions } from "@faith-tools/bible-sdk";
 
 const versions = await listBibleVersions(); // Uses the page's provider, or HelloAO
 const english = versions.filter((version) => version.language === "en");</textarea>
@@ -695,7 +705,7 @@ const english = versions.filter((version) => version.language === "en");</textar
           <a href="https://faith.tools">Faith Tools Software Solutions, LLC</a>. © 2026.
         </p>
         <p>
-          Scripture Inline is an independent community project. It is not affiliated with, endorsed by, or supported
+          Bible SDK is an independent community project. It is not affiliated with, endorsed by, or supported
           by YouVersion or Life.Church. HelloAO is the default Bible data source; YouVersion and fetch.bible are optional.
         </p>
         <p>Default Bible text from <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a> and <a href="https://fetch.bible/">fetch.bible</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
@@ -769,7 +779,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       const showReferencesCode = () =>
         showCode("references-code", "html", [
           "<script",
-          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"',
+          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"',
           `  data-mode="${mode}"`,
           ...(mode === "card" && trigger === "hover" ? ['  data-trigger="hover"'] : []),
           "></" + "script>",
@@ -796,7 +806,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       // Passage: each control sets one attribute or property, and the code shows the markup on screen.
       const showPassageCode = () =>
         showCode("layout-code", "html", [
-          "<si-passage",
+          "<bible-sk-passage",
           ...(demo.hasAttribute("bible-version-id") ? [`  bible-version-id="${demo.getAttribute("bible-version-id")}"`] : []),
           `  passage-id="${demo.getAttribute("passage-id")}"`,
           `  reference="${demo.getAttribute("reference")}"`,
@@ -805,7 +815,7 @@ const english = versions.filter((version) => version.language === "en");</textar
             .filter((name) => demo.hasAttribute(name))
             .map((name) => `  ${name}="${demo.getAttribute(name)}"`),
           ...(demo.style.length ? [`  style="${demo.style.cssText}"`] : []),
-          "></si-passage>",
+          "></bible-sk-passage>",
         ]);
       const layouts = document.getElementById("layout-picker");
       layouts.addEventListener("click", (event) => {
@@ -848,9 +858,9 @@ const english = versions.filter((version) => version.language === "en");</textar
       const input = document.getElementById("input-demo");
       const showInputCode = () =>
         showCode("input-code", "html", [
-          `<si-passage-input name="passage"${input.hasAttribute("book-order") ? ' book-order="alphabetical"' : ""}></si-passage-input>`,
+          `<bible-sk-passage-input name="passage"${input.hasAttribute("book-order") ? ' book-order="alphabetical"' : ""}></bible-sk-passage-input>`,
           "<script>",
-          '  document.querySelector("si-passage-input").addEventListener("change", (event) => {',
+          '  document.querySelector("bible-sk-passage-input").addEventListener("change", (event) => {',
           "    console.log(event.detail.passageId);",
           "  });",
           "</" + "script>",
@@ -869,9 +879,9 @@ const english = versions.filter((version) => version.language === "en");</textar
       const versionInput = document.getElementById("version-demo");
       const showVersionCode = () =>
         showCode("version-code", "html", [
-          `<si-version-input name="translation" value="${versionInput.value || "BSB"}"></si-version-input>`,
+          `<bible-sk-version-input name="translation" value="${versionInput.value || "BSB"}"></bible-sk-version-input>`,
           "<script>",
-          '  document.querySelector("si-version-input").addEventListener("change", (event) => {',
+          '  document.querySelector("bible-sk-version-input").addEventListener("change", (event) => {',
           "    console.log(event.detail.bibleVersionId);",
           "  });",
           "</" + "script>",
