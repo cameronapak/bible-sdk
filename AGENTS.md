@@ -15,13 +15,13 @@ Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messa
 - `src/embed.ts` - Script tag entry. Reads `data-*` attributes and registers everything.
 - `src/providers.ts` - Shared Bible provider contract, default HelloAO adapter, and optional YouVersion adapter.
 - `src/index.ts` - Bundler entry and `scriptureInline()`, the reference finder.
-- `src/scripture-passage.ts` - `<si-passage>`. `src/passage-input.ts` - `<si-passage-input>`.
-- `src/version-input.ts` - `<si-version-input>`, the translation picker using the provider's shared catalog.
+- `src/scripture-passage.ts` - `<bible-sk-passage>`. `src/passage-input.ts` - `<bible-sk-passage-input>`.
+- `src/version-input.ts` - `<bible-sk-version-input>`, the translation picker using the provider's shared catalog.
 - `src/card.ts` - The popover card. It renders `<si-passage>` inside a shadow root.
 - `index.html` - Docs and demo page, styled with Sensible UI.
 
 ## Conventions
-- Elements use the `si-` prefix. Never `yvp-`, because YouVersion doesn't own this project.
+- New markup uses the `bible-sk-` prefix. Register `si-*` compatibility names too; custom element names need separate constructors, so use thin subclasses. Never use `bs-` or `yvp-`.
 - Keep the existing JavaScript exports, `si-*` tags, attributes, `scripture-*` events, CSS names, and Effect service keys compatible with Scripture Inline.
 - YouVersion-specific parameters start with `yvp-` (`yvp-public-app-key`, `yvp-bible-version-id`). USFM passage IDs (`passage-id`) have no prefix.
 - Always call the app key "public", in names and in docs.

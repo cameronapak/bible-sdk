@@ -25,6 +25,8 @@ const SKIP_SELECTOR = [
   // Our own components render Bible text and passage suggestions that must stay plain.
   "si-passage",
   "si-passage-input",
+  "bible-sk-passage",
+  "bible-sk-passage-input",
   "[data-scripture-inline-ignore]",
 ].join(",");
 

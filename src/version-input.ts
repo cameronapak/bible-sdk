@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { listBibleVersionsEffect, providerDefaults, resolveProvider, resolveProviderEffect, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
 
 export const VERSION_INPUT_TAG = "si-version-input";
+export const BIBLE_VERSION_INPUT_TAG = "bible-sk-version-input";
 export type VersionInputDetail = { provider: string; bibleVersionId: string; bibleVersion: BibleVersion | null };
 
 const STYLES = `
@@ -320,10 +321,11 @@ export class ScriptureVersionInput extends HTMLElement {
   });
 }
 
-/** Registers <si-version-input>, sharing provider defaults with standalone passages. */
+/** Registers <bible-sk-version-input> and <si-version-input>, sharing provider defaults. */
 export function defineVersionInput(options: ProviderOptions = {}): void {
   Object.assign(providerDefaults, options);
   if (!customElements.get(VERSION_INPUT_TAG)) customElements.define(VERSION_INPUT_TAG, ScriptureVersionInput);
+  if (!customElements.get(BIBLE_VERSION_INPUT_TAG)) customElements.define(BIBLE_VERSION_INPUT_TAG, class extends ScriptureVersionInput {});
 }
 
-declare global { interface HTMLElementTagNameMap { "si-version-input": ScriptureVersionInput; } }
+declare global { interface HTMLElementTagNameMap { "si-version-input": ScriptureVersionInput; "bible-sk-version-input": ScriptureVersionInput; } }

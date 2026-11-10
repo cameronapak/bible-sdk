@@ -8,7 +8,10 @@ describe("wrapReferences", () => {
       <p>Read <em>John 3:16</em> and Rom 8:28-30 today.</p>
       <pre>John 3:16</pre>
       <a href="/x">Gen 1:1</a>
-      <si-passage><h2>Psalm 23</h2></si-passage>`;
+      <si-passage><h2>Psalm 23</h2></si-passage>
+      <bible-sk-passage><h2>Psalm 24</h2></bible-sk-passage>
+      <si-passage-input>Romans 8</si-passage-input>
+      <bible-sk-passage-input>Romans 9</bible-sk-passage-input>`;
 
     const links = wrapReferences(document.body);
 

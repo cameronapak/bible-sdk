@@ -1,4 +1,10 @@
-# @faith-tools/scripture-inline
+# @faith-tools/bible-sdk
+
+## 0.6.0
+
+### Minor Changes
+
+- 05e14ec: Rename Scripture Inline to Bible SDK, published as `@faith-tools/bible-sdk`. Add `bible-sk-passage`, `bible-sk-passage-input`, and `bible-sk-version-input` as the recommended component names while preserving all `si-*` names. Existing JavaScript exports, tag constants, attributes, events, CSS names, and data/provider subpaths remain compatible. The browser script is now `dist/bible-sdk.js`, with `dist/scripture-inline.js` retained as an identical compatibility copy. Existing pinned old-package embeds are unchanged; migrate by updating the package or script URL. Renaming component markup is optional; update matching selectors if you do.
 
 ## 0.5.0
 
