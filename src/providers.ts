@@ -1,6 +1,6 @@
 import { FreeUseBibleApi, type ApiTranslation, type ChapterVerse } from "free-use-bible-api";
-import { Effect, Schema } from "effect";
-import { ScriptureError, type BibleDisplayProvider, type BibleVersion } from "./data-types.js";
+import { Clock, Effect, Schema } from "effect";
+import { CalendarDate, ScriptureError, type BibleDisplayProvider, type BibleVersion } from "./data-types.js";
 import { attributionLink, bookId, escapeHtml, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
 import { decodeResponse, request, withPromises } from "./runtime.js";
 
@@ -32,8 +32,8 @@ export interface BibleProvider {
 }
 
 export type ProviderOptions = {
-  /** Default: helloao. YouVersion must be selected explicitly. */
-  provider?: "helloao" | "youversion" | BibleProvider;
+  /** Default: ao-lab. The helloao input is a deprecated alias. YouVersion must be selected explicitly. */
+  provider?: "ao-lab" | "helloao" | "youversion" | BibleProvider;
   /** The selected provider's version ID, such as BSB for AO Lab. */
   bibleVersionId?: string;
   yvpPublicAppKey?: string;
@@ -101,7 +101,7 @@ function inlineContent(content: readonly ChapterVerse["content"][number][], vers
   }).join("");
 }
 
-export function createHelloAOProvider() {
+export function createAOLabProvider() {
   const api = new FreeUseBibleApi({ useCache: false });
   const cache = requestCache();
   const books = (versionId: string) => cache.get(JSON.stringify(["books", versionId]), () =>
@@ -112,6 +112,20 @@ export function createHelloAOProvider() {
     id: "helloao",
     defaultVersionId: "BSB",
     clearCache: cache.clear,
+    getVerseOfTheDay: Effect.fn("helloao.getVerseOfTheDay")(function*(date) {
+      yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
+      const selected = yield* request("helloao.verseOfTheDay", (signal) => api.getVerseOfTheDay(date, undefined, undefined, { signal })).pipe(
+        Effect.flatMap(decodeResponse(Schema.NullOr(Schema.Struct({
+          book: Schema.NonEmptyString, chapter: Schema.Int.check(Schema.isGreaterThan(0)),
+          verse: Schema.Int.check(Schema.isGreaterThan(0)), endVerse: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+        })))),
+      );
+      if (!selected) return yield* new ScriptureError({ code: "unavailable", message: "The daily verse calendar has no selection for this date." });
+      return {
+        passageId: `${selected.book}.${selected.chapter}.${selected.verse}${selected.endVerse === undefined ? "" : `-${selected.endVerse}`}`,
+        sourceUrl: `${api.endpoint.replace(/\/$/, "")}/api/d/verse-of-the-day/verses.json`,
+      };
+    }),
     listBooks: Effect.fn("helloao.listBooks")(function*(versionId) {
       const result = yield* books(versionId);
       return result.books.map((book) => ({ id: book.id, title: book.name }));
@@ -240,7 +254,13 @@ export function createHelloAOProvider() {
   return withPromises(effects);
 }
 
-export const helloaoProvider = createHelloAOProvider();
+export const aoLabProvider = createAOLabProvider();
+
+/** @deprecated Use createAOLabProvider instead. */
+export const createHelloAOProvider = createAOLabProvider;
+
+/** @deprecated Use aoLabProvider instead. */
+export const helloaoProvider = aoLabProvider;
 
 /** The SDK is loaded only when this provider is used. No YouVersion requests run by default. */
 export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<ProviderOptions, "yvpPublicAppKey" | "yvpApiHost">) {
@@ -255,6 +275,18 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
     id: "youversion",
     defaultVersionId: "3034",
     clearCache: Effect.void,
+    getVerseOfTheDay: Effect.fn("youversion.getVerseOfTheDay")(function*(date) {
+      yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
+      const now = new Date(yield* Clock.currentTimeMillis);
+      const year = Number(date.slice(0, 4));
+      if (year !== now.getFullYear()) return yield* new ScriptureError({ code: "unsupported", message: "YouVersion's daily verse API has no year parameter. Only dates in the runtime's current year are supported." });
+      const day = 1 + (Date.parse(`${date}T00:00:00Z`) - Date.UTC(year, 0, 1)) / 86_400_000;
+      const { sdk, client } = yield* connection();
+      const selected = yield* request("youversion.verseOfTheDay", () => sdk.getVOTD(client, day)).pipe(
+        Effect.flatMap(decodeResponse(Schema.Struct({ day: Schema.Literal(day), passage_id: Schema.NonEmptyString }))),
+      );
+      return { passageId: selected.passage_id, sourceUrl: `https://${yvpApiHost || "api.youversion.com"}/v1/verse-of-the-days/${day}` };
+    }),
     listBooks: Effect.fn("youversion.listBooks")(function*(versionId) {
       const { sdk, client } = yield* connection(versionId);
       const books = yield* request("youversion.books", () => sdk.getBooks(client, Number(versionId))).pipe(Effect.tap(youversionList(Schema.Struct({ id: Schema.String, title: Schema.String }))));
@@ -345,7 +377,7 @@ const youversionProviders = new Map<string, BibleProvider>();
 
 export function resolveProvider(options: ProviderOptions): BibleProvider {
   if (typeof options.provider === "object") return options.provider;
-  if (!options.provider || options.provider === "helloao") return helloaoProvider;
+  if (!options.provider || options.provider === "ao-lab" || options.provider === "helloao") return aoLabProvider;
   if (options.provider !== "youversion") throw new ScriptureError({ code: "unsupported", message: `Unknown Bible provider: ${options.provider}` });
   const key = JSON.stringify([options.yvpPublicAppKey, options.yvpApiHost]);
   let provider = youversionProviders.get(key);

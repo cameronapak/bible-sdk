@@ -76,6 +76,47 @@ await Effect.runPromise(program);
 
 Use `Effect.catchTag("ScriptureError", ...)` for expected failures. Layers, `RequestPolicy`, and service-based `scripture` programs are exported from `/data/effect`, not `/data`. See [Effect configuration and custom providers](#effect-configuration-and-custom-providers) for composition and testing.
 
+### Verse of the day
+
+`getVerseOfTheDay({ date?, versionId?, calendarSource? })` returns `{ date, calendarSource: { provider, sourceUrl }, passage }`. `calendarSource` chooses the daily reference calendar, not the Bible text provider; it defaults to `"provider"`, the selected provider's native calendar. `passage` is the full `ScripturePassage`, including attribution, licenses, source limitations, and display instructions. Available in both `/data` and `/data/effect`; Effect consumers can also use `scripture.getVerseOfTheDay()` with a `BibleSource` Layer.
+
+```ts
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+
+const scripture = createScriptureClient(); // AO Lab, default BSB
+const daily = await scripture.getVerseOfTheDay();
+console.log(daily.date, daily.passage.reference);
+console.log(daily.passage.text);
+console.log(daily.passage.attribution.text);
+```
+
+`date` is a real `YYYY-MM-DD` calendar date, not a timestamp. Omit it for the runtime's local date when the operation executes. On a server, pass the reader's date explicitly if their timezone differs. Invalid dates fail with `invalid_reference`.
+
+| Provider | Native calendar (`capabilities.verseOfTheDay`) | Notes |
+| --- | --- | --- |
+| AO Lab | `true` | Its SDK selects from an [MIT-licensed reference dataset](https://bible.helloao.org/docs/reference/datasets/#verse-of-the-day), using the shared convention, including Christian holidays. Dates have a deterministic yearly order. |
+| YouVersion | `true` | Its [calendar API](https://developers.youversion.com/api/verse-of-the-days) accepts day 1-366, with no year parameter. The SDK accepts only dates in the runtime's current year, not historical or future-year lookups. This does not promise a published schedule for future days. |
+| fetch.bible | `false` | No native calendar is documented in its [client API](https://fetch.bible/access/client/). Opt into the shared reference calendar. |
+| API.Bible | `false` | Its [daily-verse tutorial](https://docs.api.bible/tutorials/verse-of-the-day) uses an app-owned reference list, not a native calendar endpoint. Opt into the shared reference calendar with a data adapter. |
+
+Check `scripture.capabilities.verseOfTheDay` to label or disable a **provider calendar** option in your interface. It reports the provider's implementation, not credentials, translation availability, or rights. Without native support, the default call fails with `unsupported` and makes no calendar request. Existing custom providers remain compatible; implement optional `BibleDataProvider.getVerseOfTheDay(date)` returning an Effect of `{ passageId, sourceUrl }` to expose a native calendar.
+
+For a shared daily selection with any data provider, opt in explicitly:
+
+```ts
+const daily = await scripture.getVerseOfTheDay({
+  calendarSource: "ao-lab", // Only the reference comes from AO Lab.
+  date: "2026-12-25",
+  // versionId: "eng_bsb", // If scripture uses fetch.bible.
+});
+```
+
+The result records the calendar in `daily.calendarSource` separately from the text provider in `daily.passage.provider`. This is AO Lab's selection, not fetch.bible's, API.Bible's, or YouVersion's own daily verse. There is no automatic fallback after authentication, network, or availability failures. If the selected translation lacks the book or verse, the request fails with `unavailable`; it does not replace the verse or translation. References use standard English/BSB numbering; cross-provider versification differences remain possible, not automatically mapped.
+
+The shared list contains references, not Scripture text. Its MIT license does not grant rights to the selected translation. [fetch.bible](https://fetch.bible/access/) requires following each translation's terms. [YouVersion](https://platform.youversion.com/terms) still requires your public app key, publisher agreements, attribution, and applicable paid-app and AI-use conditions. [API.Bible](https://care.api.bible/article/396-licensing-policies-quick-reference) still requires your own server-side credentials, applicable plan and translation permissions, copyright display, FUMS web-display reporting, and refreshing cached content within 30 days. Daily results preserve the passage's instructions; no new persistent caching or offline rights are established. Verse art and devotional content are not included.
+
+To use the existing passage component, resolve the daily selection, then set its `passage-id` to `daily.passage.passageId`. Use the same provider and version on the component. The data API does not register components or start an automatic midnight refresh; call it again when your app needs a new day's verse.
+
 ## Getting started
 
 ### Add the script
@@ -98,7 +139,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 
 | Script tag / JavaScript | Default | Purpose |
 | --- | --- | --- |
-| `data-provider` / `provider` | `helloao` | `helloao` or `youversion`. JavaScript also accepts a `BibleProvider` object. |
+| `data-provider` / `provider` | `ao-lab` | `ao-lab` or `youversion`. JavaScript also accepts a `BibleProvider` object. `helloao` is a deprecated input alias. |
 | `data-bible-version-id` / `bibleVersionId` | Provider default | `BSB` for AO Lab; `3034` for YouVersion. IDs are provider-specific. |
 | `data-yvp-public-app-key` / `yvpPublicAppKey` | None | Your public app key. Required only for YouVersion. |
 | `data-yvp-api-host` / `yvpApiHost` | YouVersion's API | Another YouVersion API host, for testing. |
@@ -117,7 +158,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
-| `provider` | The script's provider, or `helloao` | `helloao` or `youversion`. |
+| `provider` | The script's provider, or `ao-lab` | `ao-lab` or `youversion`. `helloao` is a deprecated input alias. |
 | `bible-version-id` | The script's version, or provider default | `BSB` for AO Lab; `3034` for YouVersion. |
 | `yvp-bible-version-id` | `3034` | YouVersion-only alias. `bible-version-id` takes precedence. |
 | `passage-id` | None | A USFM passage such as `ROM.8.28-30`, or a whole chapter such as `ROM.8`. Required. |
@@ -216,7 +257,7 @@ Use the arrow keys and Enter to choose a translation, or Escape to close the lis
 | `language` | Selected translation or browser language | A language tag such as `en`, or `all`. Filters choices, not the selected passage. |
 | `placeholder` | `Search translations` | Hint text in the search field. |
 | `disabled` | Off | Turns the field off. |
-| `provider` | The script's provider, or `helloao` | `helloao` or `youversion`. |
+| `provider` | The script's provider, or `ao-lab` | `ao-lab` or `youversion`. `helloao` is a deprecated input alias. |
 | `yvp-public-app-key` | The script tag's key | Your public app key. Required only for YouVersion. |
 | `yvp-api-host` | YouVersion's API | Another YouVersion API host, for testing. |
 
@@ -259,7 +300,7 @@ scriptureInline({ root: document.querySelector("article") });
 | --- | --- |
 | `scriptureInline(options)` | Finds and links references. Takes the [Bible references](#bible-references) options and returns `{ links, stop }`. `stop()` restores the plain text. |
 | `defineScripturePassage(options)` | Registers `<bible-sk-passage>` and `<si-passage>`. Accepts the provider options above as page-wide defaults. Passage attributes override them. |
-| `helloaoProvider` | The default provider, using the `free-use-bible-api` SDK. |
+| `aoLabProvider` | The default provider, using the `free-use-bible-api` SDK. `helloaoProvider` remains a deprecated alias. |
 | `createYouVersionProvider({ yvpPublicAppKey, yvpApiHost })` | Creates the optional YouVersion provider. |
 | `definePassageInput()` | Registers `<bible-sk-passage-input>` and `<si-passage-input>`. |
 | `defineVersionInput(options)` | Registers `<bible-sk-version-input>` and `<si-version-input>`. Shares provider defaults with `defineScripturePassage()`. |
@@ -300,7 +341,9 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);
 ```
 
-AO Lab preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/bible-sdk/providers/helloao`. The `helloao` provider ID, exports, and import paths remain unchanged for compatibility.
+AO Lab preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createAOLabProvider` from `@faith-tools/bible-sdk/providers/ao-lab`.
+
+Use `aoLabProvider`, `createAOLabProvider()`, and `provider: "ao-lab"` for new code. The old `helloaoProvider`, `createHelloAOProvider()`, `/providers/helloao` import path, and `provider: "helloao"` input remain supported as deprecated aliases. Daily-verse selection uses `calendarSource: "ao-lab"`; `calendarSource: "helloao"` is also a deprecated alias. Returned provider IDs (including event details and daily calendar provenance) remain `helloao`, and tracing identifiers and upstream URLs stay unchanged. This additive migration does not change the source or its data.
 
 ### fetch.bible: declare your usage
 

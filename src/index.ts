@@ -10,7 +10,7 @@ export { createScriptureCard } from "./card";
 export { BIBLE_PASSAGE_INPUT_TAG, PASSAGE_INPUT_TAG, ScripturePassageInput, definePassageInput, type PassageInputDetail } from "./passage-input";
 export { BIBLE_VERSION_INPUT_TAG, VERSION_INPUT_TAG, ScriptureVersionInput, defineVersionInput, type VersionInputDetail } from "./version-input";
 export { BIBLE_PASSAGE_TAG, SCRIPTURE_PASSAGE_TAG, ScripturePassage, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
-export { helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
+export { aoLabProvider, createAOLabProvider, helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
 
 export type Mode = "link" | "card";
 export type Trigger = "click" | "hover";

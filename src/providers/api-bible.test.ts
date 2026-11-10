@@ -1,12 +1,13 @@
 import { afterEach, expect, vi } from "vitest";
 import { it } from "@effect/vitest";
 import { Effect, Fiber } from "effect";
+import { FreeUseBibleApi } from "free-use-bible-api";
 import { TestClock } from "effect/testing";
 import { createScriptureClient } from "../data.js";
 import { createScriptureClient as createEffectClient, RequestPolicy } from "../data-effect.js";
 import { createApiBibleProvider, type ApiBibleClient } from "./api-bible.js";
 
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const bible = {
   id: "edition", name: "Test Bible", abbreviation: "TB", language: { id: "heb", name: "Hebrew", scriptDirection: "rtl" },
@@ -61,6 +62,25 @@ it("preserves superscriptions, poetry, publisher notices and FUMS through the sh
     expect.objectContaining({ code: "api-bible-usage", level: "required" }),
   ]));
   expect(await Effect.runPromise(native.getPassage({ passageId: "PSA.3" }))).toEqual(passage);
+});
+
+it("opts into a reference calendar without losing daily passage reporting or publisher obligations", async () => {
+  const { client } = setup();
+  expect(client.capabilities.verseOfTheDay).toBe(false);
+  await expect(client.getVerseOfTheDay({ date: "2026-12-25" })).rejects.toMatchObject({ code: "unsupported" });
+  vi.spyOn(FreeUseBibleApi.prototype, "getVerseOfTheDay").mockResolvedValue({ book: "JHN", chapter: 3, verse: 16, endVerse: 18, categories: [] });
+  const daily = await client.getVerseOfTheDay({ calendarSource: "ao-lab", date: "2026-12-25" });
+  expect(daily.calendarSource.provider).toBe("helloao");
+  expect(daily.passage).toMatchObject({
+    provider: "api-bible", passageId: "JHN.3.16-18", text: "Selected. Last.",
+    publisher: { copyrightHtml: "Test copyright", infoHtml: bible.info },
+    reporting: { kind: "api-bible-fums", token: "invented-reporting-token" },
+    cache: { expiresAt: expect.any(Number) },
+  });
+  expect(daily.passage.instructions).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "api-bible-fums", level: "required" }),
+    expect.objectContaining({ code: "api-bible-cache", level: "required" }),
+  ]));
 });
 
 it("expands compact ranges and rejects incomplete coverage even when the resolved ID claims success", async () => {

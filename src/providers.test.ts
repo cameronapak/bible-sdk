@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
 import { Effect } from "effect";
 import * as youversion from "@youversion/platform-core";
-import { helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider } from "./providers";
+import { helloaoProvider, createHelloAOProvider, createYouVersionProvider, listBibleVersions, resolveProvider, type BibleProvider } from "./providers";
+import { aoLabProvider, createAOLabProvider } from "./providers/ao-lab";
 
 vi.mock("@youversion/platform-core", async (importOriginal) => ({
   ...await importOriginal<typeof youversion>(), getVersions: vi.fn(), getPassageDisplay: vi.fn(),
@@ -33,7 +34,12 @@ function chapter() {
 
 it("renders only the inclusive range, escaping text and preserving formatting, spacing, and attribution", async () => {
   chapter();
-  const display = await helloaoProvider.getPassage("test", "JHN.3.2-3");
+  expect(createHelloAOProvider).toBe(createAOLabProvider);
+  expect(helloaoProvider).toBe(aoLabProvider);
+  expect(resolveProvider({ provider: "helloao" })).toBe(aoLabProvider);
+  const provider = resolveProvider({ provider: "ao-lab" });
+  expect(provider.id).toBe("helloao");
+  const display = await provider.getPassage("test", "JHN.3.2-3");
   const section = document.createElement("section");
   section.innerHTML = display.html;
   expect(section.textContent).toContain("One and only Son<script>alert(1)</script>");

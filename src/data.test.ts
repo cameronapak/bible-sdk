@@ -10,10 +10,92 @@ import { createYouVersionProvider, type BibleProvider } from "./providers";
 import { createFetchBibleProvider } from "./providers/fetch-bible";
 
 vi.mock("@youversion/platform-core", async (original) => ({
-  ...await original<typeof youversion>(), getPassage: vi.fn(), getVersion: vi.fn(), getVerses: vi.fn(), getBooks: vi.fn(), getChapters: vi.fn(),
+  ...await original<typeof youversion>(), getPassage: vi.fn(), getVersion: vi.fn(), getVerses: vi.fn(), getBooks: vi.fn(), getChapters: vi.fn(), getVOTD: vi.fn(),
 }));
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it("resolves AO Lab's holiday range through the selected version with full passage guidance", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+    if (String(input).endsWith("/verses.json")) return Response.json({
+      verses: [
+        { book: "JHN", chapter: 3, verse: 1, categories: ["faith"] },
+        { book: "JHN", chapter: 3, verse: 16, endVerse: 17, categories: ["christmas"] },
+      ],
+      holidays: [{ id: "christmas", month: 12, day: 25 }],
+    });
+    return Response.json({
+      translation: { id: "custom-version", name: "Chosen Bible", language: "eng", licenseUrl: "https://example.com/license", licenseNotice: "Owner notice" },
+      book: { name: "John" },
+      chapter: { content: [{ type: "verse", number: 16, content: ["First selected."] }, { type: "verse", number: 17, content: ["Second selected."] }] },
+    });
+  }));
+  const client = createAsyncClient();
+  expect(client.capabilities.verseOfTheDay).toBe(true);
+  const daily = await client.getVerseOfTheDay({ date: "2026-12-25", versionId: "custom-version" });
+  expect(daily).toMatchObject({
+    date: "2026-12-25",
+    calendarSource: { provider: "helloao", sourceUrl: "https://bible.helloao.org/api/d/verse-of-the-day/verses.json" },
+    passage: { provider: "helloao", passageId: "JHN.3.16-17", text: "First selected. Second selected.", version: { id: "custom-version" }, attribution: { text: "Owner notice · Source: AO Lab Free Use Bible API" } },
+  });
+  expect(daily.passage.instructions).toContainEqual(expect.objectContaining({ code: "display-attribution" }));
+  expect(daily.passage.licenses).toEqual([{ url: "https://example.com/license" }]);
+});
+
+it.effect("requires explicit shared-calendar selection and never substitutes the text provider", () => Effect.gen(function*() {
+  fetchResources();
+  const client = createScriptureClient({ provider: createFetchBibleProvider({ usage: { commercial: true } }) });
+  expect(client.capabilities.verseOfTheDay).toBe(false);
+  expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2026-01-01" }))).toMatchObject({ code: "unsupported" });
+  const calendar = vi.spyOn(FreeUseBibleApi.prototype, "getVerseOfTheDay").mockResolvedValue({ book: "3JN", chapter: 1, verse: 2, categories: ["faith"] });
+  const daily = yield* client.getVerseOfTheDay({ date: "2026-01-01", calendarSource: "ao-lab" });
+  expect(yield* client.getVerseOfTheDay({ date: "2026-01-01", calendarSource: "helloao" })).toEqual(daily);
+  expect(daily.calendarSource.provider).toBe("helloao");
+  expect(daily.passage).toMatchObject({ provider: "fetch-bible", text: "Selected words.", version: { id: "eng_bsb" }, attribution: { text: "[Public domain - Required owner credit] · Source: fetch.bible" } });
+  calendar.mockResolvedValue({ book: "GEN", chapter: 1, verse: 1, categories: ["faith"] });
+  expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2026-01-01", calendarSource: "helloao" }))).toMatchObject({ code: "unavailable" });
+  calendar.mockRejectedValue({ status: 403 });
+  expect(yield* Effect.flip(client.getVerseOfTheDay({ calendarSource: "helloao" }))).toMatchObject({ code: "authentication" });
+}));
+
+it.effect("uses YouVersion's current-year day number across leap day without DST drift", () => Effect.gen(function*() {
+  yield* TestClock.setTime(Date.parse("2028-07-10T12:00:00Z"));
+  const client = createScriptureClient({ provider: createYouVersionProvider({ yvpPublicAppKey: "test" }) });
+  expect(client.capabilities.verseOfTheDay).toBe(true);
+  vi.mocked(youversion.getVerses).mockResolvedValue({ data: [{ id: "16" }] } as Awaited<ReturnType<typeof youversion.getVerses>>);
+  vi.mocked(youversion.getPassage).mockResolvedValue({ id: "JHN.3.16", reference: "John 3:16", content: "Exact Scripture." });
+  vi.mocked(youversion.getVersion).mockResolvedValue({ id: 3034, localized_title: "BSB", localized_abbreviation: "BSB", language_tag: "en", copyright: "Required notice" } as Awaited<ReturnType<typeof youversion.getVersion>>);
+  for (const [date, day] of [["2028-01-01", 1], ["2028-02-29", 60], ["2028-03-01", 61], ["2028-12-31", 366]] as const) {
+    vi.mocked(youversion.getVOTD).mockImplementation(async (_client, requestedDay) => ({ day: requestedDay, passage_id: "JHN.3.16" }));
+    const daily = yield* client.getVerseOfTheDay({ date });
+    expect(daily.calendarSource).toEqual({ provider: "youversion", sourceUrl: `https://api.youversion.com/v1/verse-of-the-days/${day}` });
+    expect(daily.passage.text).toBe("Exact Scripture.");
+    expect(daily.passage.instructions).toContainEqual(expect.objectContaining({ code: "youversion-terms" }));
+  }
+  expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2027-12-31" }))).toMatchObject({ code: "unsupported" });
+  vi.mocked(youversion.getVOTD).mockResolvedValue({ day: 2, passage_id: "JHN.3.16" });
+  expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2028-01-01" }))).toMatchObject({ code: "invalid_response" });
+}));
+
+it.effect("validates dates and calendar references, and evaluates today when the Effect runs", () => Effect.gen(function*() {
+  const calendar = vi.spyOn(FreeUseBibleApi.prototype, "getVerseOfTheDay").mockResolvedValue(null);
+  const client = createScriptureClient();
+  for (const date of ["2027-02-29", "2028-02-30", "2026-04-31", "2026-13-01", "2026-1-01", "2026-01-01T00:00:00Z", ""]) {
+    expect(yield* Effect.flip(client.getVerseOfTheDay({ date }))).toMatchObject({ code: "invalid_reference" });
+  }
+  expect(calendar).not.toHaveBeenCalled();
+  const today = client.getVerseOfTheDay();
+  yield* TestClock.setTime(new Date(2028, 11, 31, 23, 59).getTime());
+  expect(yield* Effect.flip(today)).toMatchObject({ code: "unavailable" });
+  expect(calendar.mock.calls.at(-1)?.[0]).toBe("2028-12-31");
+  yield* TestClock.adjust("2 minutes");
+  expect(yield* Effect.flip(today)).toMatchObject({ code: "unavailable" });
+  expect(calendar.mock.calls.at(-1)?.[0]).toBe("2029-01-01");
+  calendar.mockResolvedValue({ book: "JHN", chapter: 3, verse: 17, endVerse: 16, categories: [] });
+  expect(yield* Effect.flip(client.getVerseOfTheDay())).toMatchObject({ code: "invalid_response" });
+  calendar.mockResolvedValue({ book: "jhn", chapter: 3, verse: 16, categories: [] } as unknown as Awaited<ReturnType<FreeUseBibleApi["getVerseOfTheDay"]>>);
+  expect(yield* Effect.flip(client.getVerseOfTheDay())).toMatchObject({ code: "invalid_response" });
+}));
 
 it.effect("returns clean default-provider text and actionable RTL guidance without a DOM", () => Effect.gen(function*() {
   expect(typeof document).toBe("undefined");
