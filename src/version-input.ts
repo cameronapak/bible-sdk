@@ -1,4 +1,5 @@
-import { listBibleVersions, providerDefaults, resolveProvider, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
+import { Effect } from "effect";
+import { listBibleVersionsEffect, providerDefaults, resolveProvider, resolveProviderEffect, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
 
 export const VERSION_INPUT_TAG = "si-version-input";
 export type VersionInputDetail = { provider: string; bibleVersionId: string; bibleVersion: BibleVersion | null };
@@ -9,12 +10,21 @@ const STYLES = `
 input, select, button { box-sizing: border-box; font: inherit; color: inherit; }
 input, select {
   width: 100%; min-width: 0; height: 2.25rem; margin: 0; padding: 0.25rem 0.75rem;
-  background: var(--popover, Canvas); border: 1px solid var(--input, color-mix(in srgb, currentColor 20%, transparent));
+  background: none; border: 1px solid var(--input, color-mix(in srgb, currentColor 20%, transparent));
   border-radius: calc(var(--radius, 0.625rem) - 2px); outline: none; box-shadow: 0 1px 2px #0000000d;
+  transition: color 0.15s, box-shadow 0.15s;
 }
-input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--ring, Highlight); outline-offset: 2px; }
+input:focus-visible, select:focus-visible {
+  border-color: var(--ring, Highlight);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring, Highlight) 50%, transparent);
+}
+button:focus-visible { outline: 2px solid var(--ring, Highlight); outline-offset: 2px; }
 input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 input[aria-invalid="true"] { border-color: var(--destructive, #dc2626); }
+.language { position: relative; }
+.language select { appearance: none; padding-inline-end: 2.5rem; }
+.language svg { position: absolute; inset-inline-end: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.language select:disabled + svg { opacity: 0.5; }
 .search { position: relative; }
 [role="listbox"] {
   position: absolute; inset: calc(100% + 4px) 0 auto; z-index: 50; box-sizing: border-box;
@@ -29,11 +39,12 @@ input[aria-invalid="true"] { border-color: var(--destructive, #dc2626); }
 .language-name { display: block; font-size: 0.75rem; opacity: 0.7; }
 .feedback { display: flex; align-items: center; gap: 0.5rem; min-height: 1.5rem; font-size: 0.75rem; }
 [role="status"] { display: flex; align-items: center; gap: 0.375rem; }
-svg { flex: none; animation: spin 0.8s linear infinite; }
+svg { flex: none; }
+[role="status"] svg { animation: spin 0.8s linear infinite; }
 button { border: 0; padding: 0; background: none; text-decoration: underline; cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (pointer: coarse) { input, select { font-size: 16px; } }
-@media (prefers-reduced-motion: reduce) { svg { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: reduce) { [role="status"] svg { animation-duration: 2.4s; } }
 @media (hover: hover) and (pointer: fine) { [role="option"]:hover { background: var(--accent, color-mix(in srgb, currentColor 10%, transparent)); } }
 `;
 
@@ -60,6 +71,7 @@ export class ScriptureVersionInput extends HTMLElement {
   private active = -1;
   private generation = 0;
   private scheduled = false;
+  private cancelLoad?: () => void;
   private loading = false;
   private failed = false;
   private formDisabled = false;
@@ -70,13 +82,18 @@ export class ScriptureVersionInput extends HTMLElement {
     style.textContent = STYLES;
     const root = document.createElement("div");
     root.className = "root";
+    const language = document.createElement("div");
+    language.className = "language";
+    language.append(this.language);
+    // Lucide chevron-down; decorative so the native select keeps its accessible name.
+    language.insertAdjacentHTML("beforeend", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
     const search = document.createElement("div");
     search.className = "search";
     search.append(this.input, this.list);
     const feedback = document.createElement("div");
     feedback.className = "feedback";
     feedback.append(this.status, this.retry);
-    root.append(this.language, search, feedback);
+    root.append(language, search, feedback);
     this.attachShadow({ mode: "open" }).append(style, root);
 
     this.input.type = "text";
@@ -148,7 +165,7 @@ export class ScriptureVersionInput extends HTMLElement {
     this.input.setAttribute("aria-label", this.getAttribute("aria-label") || [...this.internals.labels].map((label) => label.textContent?.trim()).join(" ") || "Bible translation");
     this.scheduleLoad();
   }
-  disconnectedCallback(): void { this.generation++; this.close(); }
+  disconnectedCallback(): void { this.generation++; this.cancelLoad?.(); this.close(); }
   attributeChangedCallback(name: string, old: string | null, value: string | null): void {
     if (old === value) return;
     if (name === "value") { this.pendingValue = value ?? ""; if (!this.loading) this.commit(this.pendingValue, false); }
@@ -246,11 +263,29 @@ export class ScriptureVersionInput extends HTMLElement {
   }
   private scheduleLoad(): void {
     this.generation++;
+    this.cancelLoad?.();
     if (this.scheduled) return;
     this.scheduled = true;
-    queueMicrotask(() => { this.scheduled = false; if (this.isConnected) void this.load(this.generation); });
+    queueMicrotask(() => {
+      this.scheduled = false;
+      if (this.isConnected) this.cancelLoad = Effect.runCallback(this.load(this.generation).pipe(
+        Effect.catch((error) => Effect.sync(() => {
+          this.selected = undefined;
+          this.versions = [];
+          this.input.value = "";
+          this.status.textContent = "Unable to load translations.";
+          this.internals.setValidity({ customError: true }, "Unable to load translations.", this.input);
+          this.input.setAttribute("aria-invalid", "true");
+          this.loading = false;
+          this.failed = true;
+          this.updateDisabled();
+          this.retry.hidden = false;
+          this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
+        })),
+      ));
+    });
   }
-  private async load(generation: number): Promise<void> {
+  private readonly load = Effect.fn("scripture.versionInput.load")(function*(this: ScriptureVersionInput, generation: number) {
     const previous = this.pendingValue ?? this.selected?.id;
     this.loading = true;
     this.failed = false;
@@ -260,14 +295,13 @@ export class ScriptureVersionInput extends HTMLElement {
     this.internals.setFormValue(null);
     this.internals.setValidity({});
     this.input.setAttribute("aria-invalid", "false");
-    try {
-      const provider = resolveProvider({
+      const provider = yield* resolveProviderEffect({
         ...providerDefaults,
         provider: (this.getAttribute("provider") as ProviderOptions["provider"]) || this.override || providerDefaults.provider,
         yvpPublicAppKey: this.getAttribute("yvp-public-app-key") || providerDefaults.yvpPublicAppKey,
         yvpApiHost: this.getAttribute("yvp-api-host") || providerDefaults.yvpApiHost,
       });
-      const versions = await listBibleVersions({ provider });
+      const versions = yield* listBibleVersionsEffect({ provider });
       if (!this.isConnected || generation !== this.generation) return;
       this.provider = provider;
       this.versions = [...versions].sort((a, b) => a.title.localeCompare(b.title));
@@ -283,21 +317,7 @@ export class ScriptureVersionInput extends HTMLElement {
       this.loading = false;
       this.updateDisabled();
       this.dispatchEvent(new CustomEvent("scripture-versions-load", { detail: { provider: provider.id, versions } }));
-    } catch (error) {
-      if (!this.isConnected || generation !== this.generation) return;
-      this.selected = undefined;
-      this.versions = [];
-      this.input.value = "";
-      this.status.textContent = "Unable to load translations.";
-      this.internals.setValidity({ customError: true }, "Unable to load translations.", this.input);
-      this.input.setAttribute("aria-invalid", "true");
-      this.loading = false;
-      this.failed = true;
-      this.updateDisabled();
-      this.retry.hidden = false;
-      this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
-    }
-  }
+  });
 }
 
 /** Registers <si-version-input>, sharing provider defaults with standalone passages. */

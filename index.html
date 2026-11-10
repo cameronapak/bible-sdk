@@ -19,7 +19,36 @@
     </script>
   </head>
   <body>
-    <main class="container stack">
+    <a class="skip-link" href="#content">Skip to content</a>
+    <sensible-sidebar-layout class="container docs-layout">
+      <aside class="docs-sidebar" aria-label="Page contents">
+        <details id="contents" open>
+          <summary>Contents</summary>
+          <sensible-sidebar>
+            <nav aria-label="Documentation">
+              <h2>Bible data SDK</h2>
+              <ul>
+                <li><a href="#data-sdk">Async/await</a></li>
+                <li><a href="#native-effect">Native Effect</a></li>
+                <li><a href="#providers">Choose a provider</a></li>
+                <li><a href="#passage-data">Passage data</a></li>
+                <li><a href="#display-guidance">Display and licensing</a></li>
+                <li><a href="#request-policy">Errors and caching</a></li>
+              </ul>
+              <h2>Browser components</h2>
+              <ul>
+                <li><a href="#getting-started">Browser setup</a></li>
+                <li><a href="#references">Bible references</a></li>
+                <li><a href="#passage">Passage</a></li>
+                <li><a href="#passage-input">Passage input</a></li>
+                <li><a href="#version-input">Translation picker</a></li>
+                <li><a href="#javascript">JavaScript setup</a></li>
+              </ul>
+            </nav>
+          </sensible-sidebar>
+        </details>
+      </aside>
+    <main class="stack docs-content" id="content" tabindex="-1">
       <header class="stack">
         <div class="split">
           <div class="cluster">
@@ -31,43 +60,309 @@
           </a>
         </div>
         <p>
-          Drop-in Scripture for any web page: show a passage, pick a passage, or bring every Bible reference to life.
+          A unified Bible data SDK, with optional drop-in Scripture components for web pages.
         </p>
         <img class="banner" src="./assets/banner.png" width="2533" height="718" alt="A passage input suggesting Isaiah 40:3, a Scripture card showing John 3:16 under a reference link, and a passage showing Isaiah 40:8" />
         <p class="text-muted-foreground">
           A community project. Bible text from HelloAO's Free Use Bible API, with no API key.
-          The YouVersion Platform is also available as an optional provider.
+          YouVersion and fetch.bible are optional adapters.
+          Use the DOM-free data API on its own, or add the reference finder and web components.
         </p>
-        <nav class="cluster">
-          <a href="#getting-started">Getting started</a>
-          <a href="#references">Bible references</a>
-          <a href="#passage">Passage</a>
-          <a href="#passage-input">Passage input</a>
-          <a href="#version-input">Translation picker</a>
-          <a href="#javascript">JavaScript</a>
-        </nav>
+        <p class="cluster">
+          <a href="#data-sdk">Get Bible data</a>
+          <a href="#getting-started">Add browser components</a>
+        </p>
       </header>
 
+      <section class="stack" id="data-sdk">
+        <h2>Bible data SDK</h2>
+        <p>Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. The data SDK works in a browser, Node, or Bun without components, DOM access, CSS injection, or page-wide component defaults.</p>
+        <p>Import <code>/data</code> for async/await, or <a href="#native-effect"><code>/data/effect</code></a> for native Effect programs. Both use the same Effect v4 implementation, validation, errors, and caching. HelloAO is the default; <a href="#providers">choose a provider</a> to use fetch.bible or YouVersion.</p>
+        <p>Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.</p>
+        <sensible-code language="sh" data-wrap="true">
+          <textarea readonly>pnpm add @faith-tools/scripture-inline</textarea>
+        </sensible-code>
+        <sensible-code language="js" data-wrap="true">
+          <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+
+const scripture = createScriptureClient(); // HelloAO, default BSB
+const versions = await scripture.listVersions();
+const books = await scripture.listBooks({ versionId: "BSB" });
+const chapters = await scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
+const passage = await scripture.getPassage({
+  versionId: "BSB", passageId: "JHN.3.16-18",
+});
+console.log(passage.text);
+console.log(passage.attribution.text);
+console.log(passage.instructions);</textarea>
+        </sensible-code>
+        <p>The example returns John 3:16–18 as <code>passage.text</code>, with separate attribution and instructions. See the <a href="#passage-data">passage data reference</a> for result fields and supported passage IDs.</p>
+        <h3 id="native-effect">Native Effect API</h3>
+        <p>If your application uses Effect, install <code>effect@^4</code> directly and import from <code>/data/effect</code>. Methods return lazy Effects with the same results and <code>ScriptureError</code> in the failure channel.</p>
+        <p>The same discovery and passage example, composed as one Effect program:</p>
+        <sensible-code language="js" data-wrap="true">
+          <textarea readonly>import { Effect } from "effect";
+import { createScriptureClient } from "@faith-tools/scripture-inline/data/effect";
+
+const scripture = createScriptureClient(); // HelloAO, default BSB
+const program = Effect.gen(function*() {
+  const versions = yield* scripture.listVersions();
+  const books = yield* scripture.listBooks({ versionId: "BSB" });
+  const chapters = yield* scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
+  const passage = yield* scripture.getPassage({
+    versionId: "BSB", passageId: "JHN.3.16-18",
+  });
+  console.log(passage.text);
+  console.log(passage.attribution.text);
+  console.log(passage.instructions);
+});
+
+await Effect.runPromise(program);</textarea>
+        </sensible-code>
+        <p>Use <code>Effect.catchTag("ScriptureError", ...)</code> for expected failures. Layers, <code>RequestPolicy</code>, and service-based <code>scripture</code> programs are exported from <code>/data/effect</code>, not <code>/data</code>. See <a href="#advanced-effect">Effect configuration and custom providers</a> for composition and testing.</p>
+      </section>
+
+      <section class="stack" id="providers">
+        <h2>Choose a Bible provider</h2>
+        <p>Use HelloAO by default, or select fetch.bible or YouVersion. All three support the same data API. Each client uses one provider; it never substitutes a translation or falls back to another source.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Provider</th><th scope="col">Setup</th><th scope="col">Default version ID</th></tr></thead>
+            <tbody>
+              <tr><td><a href="https://bible.helloao.org/docs/">HelloAO</a></td><td>No API key. Default provider.</td><td><code>BSB</code></td></tr>
+              <tr><td><a href="https://fetch.bible/">fetch.bible</a></td><td>No API key. Declare your usage.</td><td><code>eng_bsb</code></td></tr>
+              <tr><td><a href="https://platform.youversion.com/">YouVersion</a></td><td>Requires a public app key.</td><td><code>3034</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Version IDs belong to one provider: <code>BSB</code>, <code>eng_bsb</code>, and <code>3034</code> are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.</p>
+        <p><strong>YouVersion has additional paid-app and AI-use conditions.</strong> Review the <a href="#youversion-requirements">YouVersion requirements</a> before using that adapter.</p>
+        <div>
+        <details>
+          <summary>HelloAO: use the default</summary>
+          <div class="stack">
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+
+const scripture = createScriptureClient(); // Default BSB
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);</textarea>
+            </sensible-code>
+            <p>HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import <code>createHelloAOProvider</code> from <code>@faith-tools/scripture-inline/providers/helloao</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>fetch.bible: declare your usage</summary>
+          <div class="stack">
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+
+const scripture = createScriptureClient({
+  provider: createFetchBibleProvider({ usage: { commercial: false } }),
+}); // Default eng_bsb
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);</textarea>
+            </sensible-code>
+            <p>Set <code>usage.commercial</code> to your application's actual use. The example declares noncommercial use. The <code>derivatives</code>, <code>attributionless</code>, and <code>limitless</code> filters default to <code>false</code>, <code>false</code>, and <code>true</code>. Filters are not legal permission; review each translation's terms. The adapter uses the official collection.</p>
+          </div>
+        </details>
+        <details>
+          <summary>YouVersion: add a public app key</summary>
+          <div class="stack">
+            <p>Get a public app key from <a href="https://platform.youversion.com/">YouVersion Platform</a>. Replace <code>YOUR_PUBLIC_APP_KEY</code> in this example:</p>
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
+
+const scripture = createScriptureClient({
+  provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
+}); // Default 3034
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);</textarea>
+            </sensible-code>
+            <h3 id="youversion-requirements">YouVersion requirements</h3>
+            <p>YouVersion has no commercial-use flag. Its <a href="https://platform.youversion.com/terms">Platform terms</a> do not grant Bible-content rights. Check the selected publisher's license and applicable Tool terms.</p>
+            <ul>
+              <li>Paid applications are permitted subject to conditions, including conspicuously stating that the YouVersion Bible App is free. This is neither blanket permission nor a blanket commercial prohibition.</li>
+              <li>The terms prohibit using Tools with AI for open-ended user chat except to retrieve and display Scripture verbatim.</li>
+              <li>The terms prohibit using Tools to train, develop, refine, or improve AI. Cases beyond expressly permitted uses need prior written YouVersion approval.</li>
+              <li>AI-assisted engineering and content generation have separate permissions and conditions in those terms.</li>
+            </ul>
+            <p>These requirements also appear in returned YouVersion <code>instructions</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Use providers with browser components</summary>
+          <div class="stack">
+            <p>With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:</p>
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
+import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+
+const provider = createFetchBibleProvider({ usage: { commercial: false } });
+defineScripturePassage({ provider });
+defineVersionInput({ provider });
+scriptureInline({ provider });</textarea>
+            </sensible-code>
+            <p>For an individual passage or translation picker, assign <code>element.bibleProvider = provider</code>. Remove any <code>provider</code> attribute because it takes precedence. fetch.bible requires a bundler import; it is not a script-tag provider name.</p>
+            <p>Script tags support HelloAO by default and YouVersion through explicit settings:</p>
+            <sensible-code language="html" data-wrap="true">
+              <textarea readonly><script
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
+  data-provider="youversion"
+  data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
+  data-bible-version-id="3034"
+>&lt;/script></textarea>
+            </sensible-code>
+            <p>A standalone passage can set <code>provider="youversion"</code> and <code>yvp-public-app-key="YOUR_PUBLIC_APP_KEY"</code>. With JavaScript, the equivalent options are <code>{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }</code>.</p>
+            <p>All built-in display providers add linked source credits. The fetch.bible adapter sanitizes native HTML, omits notes, loads its required stylesheet, and displays attribution separately.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Build a custom display provider</summary>
+          <div class="stack">
+        <p>Implement the exported <code>BibleProvider</code> interface with <code>id</code>, <code>defaultVersionId</code>, and <code>getPassage(versionId, passageId): Promise&lt;PassageDisplay&gt;</code>. Return safe <code>html</code>, <code>version: { id, abbreviation, title }</code>, and an <code>attribution</code> string. Optional fields are safe <code>attributionHtml</code> for links, <code>direction</code>, <code>containerAttributes</code>, and <code>stylesheets</code>. Providers must sanitize both HTML fields before returning them.</p>
+        <p>Pass the object as <code>provider</code> to <code>defineScripturePassage()</code> or <code>scriptureInline()</code>, or assign it to a passage's <code>bibleProvider</code> property. The <code>provider</code> attribute takes precedence.</p>
+        <p>To support the translation picker, also implement <code>listVersions(): Promise&lt;BibleVersion[]&gt;</code>. Assign the provider to its <code>bibleProvider</code> property or pass it to <code>defineVersionInput()</code>. Catalogs are scoped to the provider, including the YouVersion public app key and API host. Switching providers does not guess an equivalent translation. For a DOM-free provider, see <a href="#advanced-effect">Effect configuration and custom providers</a>.</p>
+          </div>
+        </details>
+        </div>
+      </section>
+
+      <section class="stack" id="data-reference">
+        <h2>Data reference</h2>
+        <p>Use uppercase <a href="https://ubsicap.github.io/usfm/">USFM</a> book IDs, such as <code>JHN</code>. Passages support a verse (<code>JHN.3.16</code>), same-chapter range (<code>JHN.3.16-18</code>), or whole chapter (<code>JHN.3</code>).</p>
+        <p>Discovery follows the selected version's available content. Valid empty verse slots remain empty; nonexistent chapters or range endpoints fail rather than returning truncated text.</p>
+        <details id="passage-data">
+          <summary>Passage data reference</summary>
+          <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Passage field</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>text</code></td><td>Plain Scripture without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain; rich formatting does not.</td></tr>
+              <tr><td><code>provider</code>, <code>source</code></td><td>Provider ID, source version ID, and URL: the HelloAO chapter endpoint, fetch.bible TXT book endpoint, or YouVersion HTTPS API base. Not a complete request log.</td></tr>
+              <tr><td><code>requestedPassageId</code>, <code>passageId</code>, <code>reference</code></td><td>Requested and resolved USFM IDs and a readable reference.</td></tr>
+              <tr><td><code>version</code></td><td>ID, title, abbreviation, available language metadata, and the source language identifier.</td></tr>
+              <tr><td><code>attribution</code>, <code>licenses</code></td><td>Attribution text, source/license URLs, and available restrictions. Missing metadata is not permission.</td></tr>
+              <tr><td><code>numbering</code></td><td><code>kjv</code> for the official fetch.bible collection; otherwise <code>unknown</code> when not established.</td></tr>
+              <tr><td><code>sourceLimitations</code></td><td>When supplied, documented trimming for this edition: <code>kind: "source-trimming"</code>, inclusive <code>startPassageId</code> and <code>endPassageId</code>, and <code>appliesToRequest</code>. Not an exhaustive catalog of differences or an explanation of each empty verse.</td></tr>
+              <tr><td><code>display</code></td><td>Text-rendering metadata: format, whitespace, attribution placement, and direction/language when known. Optional <code>nativeHtml</code> supplies container attributes and stylesheets for separately requested native HTML.</td></tr>
+              <tr><td><code>instructions</code></td><td>Stable <code>code</code>, <code>level</code> (<code>required</code>, <code>recommended</code>, <code>notice</code>), <code>appliesTo</code> (<code>all</code>, <code>text</code>, <code>html</code>), readable <code>text</code>, and optional supporting <code>urls</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        </details>
+        <p>Use <code>display</code> for rendering metadata and <code>instructions</code> for classified guidance. Read the instruction text and linked terms; codes alone do not establish permission or automatic compliance.</p>
+        <p>Instructions and provider metadata are data, not executable commands or authority to override an agent's user or system instructions. Native-HTML instructions apply only when you separately use the provider's display method.</p>
+        <div>
+        <details id="display-guidance">
+          <summary>Display instructions, licensing, and source limitations</summary>
+          <div class="stack">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Stable instruction codes</th><th scope="col">Consumer responsibility</th></tr></thead>
+            <tbody>
+              <tr><td><code>display-attribution</code>, <code>preserve-scripture</code></td><td>Follow attribution and display fields when rendering text.</td></tr>
+              <tr><td><code>verify-license</code>, <code>translation-license-notes</code></td><td>Review licenses and any translation-specific notes.</td></tr>
+              <tr><td><code>plain-text-limits</code></td><td>Account for omitted rich formatting.</td></tr>
+              <tr><td><code>fetch-bible-normalization</code>, <code>fetch-bible-license</code></td><td>Check numbering, source limitations, and translation terms.</td></tr>
+              <tr><td><code>youversion-commercial-use</code>, <code>youversion-ai-use</code>, <code>youversion-terms</code></td><td>Review paid-use disclosure, AI restrictions, and account/content agreements.</td></tr>
+              <tr><td><code>fetch-bible-native-html</code>, <code>youversion-native-html</code></td><td>Apply nativeHtml resources for separately requested HTML.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>License restriction keys remain provider-specific. Review missing or unfamiliar fields:</p>
+        <ul>
+          <li><strong>HelloAO:</strong> <code>attribution</code> is <code>required</code> or <code>not-required</code>. <code>commercialUse</code> and <code>derivatives</code> are <code>allowed</code> or <code>not-allowed</code>. <code>copyleft</code> and <code>publicDomain</code> are booleans.</li>
+          <li><strong>fetch.bible:</strong> <code>forbid_commercial</code>, <code>forbid_derivatives</code>, <code>forbid_attributionless</code>, <code>forbid_limitless</code>, and <code>forbid_other</code> describe restrictions. <code>true</code> prohibits that use; <code>false</code> means the filter found no such restriction, not legal permission. <code>forbid_derivatives: "same-license"</code> requires share-alike. Multiple licenses are alternative filtered choices, not cumulative grants; select a suitable license.</li>
+          <li><strong>YouVersion:</strong> No unified license restriction flags are supplied.</li>
+        </ul>
+        <p>To render plain text in a browser:</p>
+        <ol>
+          <li>Assign <code>passage.text</code> to <code>textContent</code>. Never insert plain text or attribution as raw HTML.</li>
+          <li>Apply <code>white-space: pre-wrap</code> and the supplied direction and language.</li>
+          <li>Show <code>passage.attribution.text</code> and its links below the passage.</li>
+        </ol>
+        <p>For native HTML, use the same provider object through the component display contract. Do not reconstruct HTML from flattened text. Native fetch.bible HTML requires its container and functional CSS. YouVersion HTML requires its returned container and stylesheets; do not download or self-host its font files.</p>
+        <p>fetch.bible uses KJV-normalized numbering and the Protestant 66-book canon. Its <code>sourceLimitations</code> identifies these documented trimmed ranges:</p>
+        <ul>
+          <li>Exodus 35:1–40:38: <code>eng_bstj</code>, <code>eng_bstjb</code>, and <code>grc_lxx</code>.</li>
+          <li>Jeremiah 25:14–52:34: those editions plus <code>eng_bst</code>, <code>eng_bstb</code>, and <code>grc_bre</code>.</li>
+        </ul>
+        <p>An overlapping range does not establish why a particular verse is empty. Psalm requests including verse 1 supplement TXT with native HTML's scriptural descriptive title, without editorial headings. No universal offline or persistent caching rights are established.</p>
+          </div>
+        </details>
+        <details id="request-policy">
+          <summary>Errors, retries, and caching</summary>
+          <div class="stack">
+        <p>Async methods reject with the original <code>ScriptureError</code> for expected failures. Import it from <code>/data</code> and use <code>try</code>/<code>catch</code> with <code>error instanceof ScriptureError</code>. Programming defects are not converted to expected errors.</p>
+        <p>Its <code>code</code> distinguishes <code>invalid_reference</code>, <code>unavailable</code>, <code>unsupported</code>, <code>authentication</code>, <code>rate_limit</code>, <code>network</code>, <code>timeout</code>, and <code>invalid_response</code>. Original diagnostics remain in <code>cause</code>; do not expose them to readers.</p>
+        <p>Built-in requests retry network and rate-limit failures twice, with exponential delays starting at 100ms and a 15-second deadline for each request's entire retry sequence. Other expected failures do not retry. Override <code>RequestPolicy</code> with <code>Effect.provideService</code>. Legacy Promise-only custom providers have a deadline but no automatic retries.</p>
+        <p>Client discovery and built-in adapter payload caches each hold at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.</p>
+        <ul>
+          <li>HelloAO shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.</li>
+          <li>Run <code>client.clearCache()</code>, or provide its Layer to <code>scripture.clearCache</code>, to clear that client's discovery and its provider's payload caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches.</li>
+          <li>The client does not memoize passage data or YouVersion attribution. Persistent caching is not provided.</li>
+        </ul>
+          </div>
+        </details>
+        <details id="advanced-effect">
+          <summary>Layers, tracing, cancellation, and custom data providers</summary>
+          <div class="stack">
+        <p>Effects support fiber interruption and <code>Effect.runPromise(program, { signal })</code>. The simple async API does not expose an interruption option. HelloAO receives transport cancellation. YouVersion and fetch.bible SDKs do not expose transport cancellation: interruption stops waiting and ignores late results, not their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.</p>
+        <p>Named spans connect SDK, provider, and request operations to your application's Effect tracer. The SDK does not choose a telemetry backend or export to a hosted service. Inject providers through the <code>BibleSource</code> service and Layers for deterministic tests:</p>
+        <sensible-code language="js" data-wrap="true">
+          <textarea readonly>import { Effect } from "effect";
+import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data/effect";
+
+const client = createScriptureClient();
+const program = scripture.getPassage({ passageId: "JHN.3.16" }).pipe(
+  Effect.provide(client.layer), // Replace the Layer in tests
+  Effect.provideService(RequestPolicy, { timeout: "5 seconds", retries: 1 }),
+  Effect.withSpan("application.scripture"),
+);
+const passage = await Effect.runPromise(program);</textarea>
+        </sensible-code>
+        <p>Custom <code>BibleDataProvider</code> implementations supply Effect-returning discovery and <code>getPassageData</code> methods, <code>id</code>, <code>defaultVersionId</code>, and a <code>clearCache</code> Effect value (<code>Effect.void</code> when unused), without a renderer. Use <code>createScriptureClient({ provider })</code> or <code>Layer.succeed(BibleSource, provider)</code>. Existing custom Promise-based display providers remain compatible; built-ins expose native operations through <code>.effects</code>. Missing data operations report <code>unsupported</code>. <code>createHelloAOProvider()</code> is also available from <code>/providers/helloao</code>. Pure parsing, formatting, and DOM updates remain ordinary synchronous code inside these Effect boundaries.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Call</th><th scope="col">Result</th></tr></thead>
+            <tbody>
+              <tr><td><code>/data</code> client's <code>getPassage({ versionId, passageId })</code></td><td>Promise returning ScripturePassage data.</td></tr>
+              <tr><td><code>/data/effect</code> client's <code>getPassage({ versionId, passageId })</code></td><td>Lazy Effect returning the same ScripturePassage data.</td></tr>
+              <tr><td><code>provider.effects.getPassageData(versionId, passageId)</code></td><td>Built-in provider's native Effect data operation.</td></tr>
+              <tr><td><code>provider.getPassage(versionId, passageId)</code></td><td>Compatibility Promise returning HTML PassageDisplay for components.</td></tr>
+            </tbody>
+          </table>
+        </div>
+          </div>
+        </details>
+        </div>
+      </section>
+
       <section class="stack" id="getting-started">
-        <h2>Getting started</h2>
+        <h2>Browser setup</h2>
         <h3>Add the script</h3>
         <p>
-          Cards and passages use <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>
-          and the Berean Standard Bible by default. No account or API key is required.
-          The <a href="#providers">YouVersion Platform</a> is also available as an optional provider.
+          Add this script to register the components and turn Bible references into Scripture cards.
+          Cards and passages use HelloAO's Berean Standard Bible (BSB) without an API key.
+          To use another source, <a href="#providers">choose a provider</a>.
         </p>
-        <p>Add one script tag. It registers the components and finds references on the page.</p>
         <sensible-code language="html" data-wrap="true">
           <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js">&lt;/script></textarea>
         </sensible-code>
       </section>
 
       <section class="stack" id="references">
-        <h2>Show Scripture for Bible references</h2>
+        <h2>Bible references</h2>
         <p>
-          The script finds references in the page's text, including abbreviations like "Rom 8:28-30", and makes each one
-          a link. Links lay out exactly like the text they replace, so lines never reflow. Text in <code>code</code>,
-          <code>pre</code>, links, form fields, and anything marked <code>data-scripture-inline-ignore</code> is skipped.
+          Turn references such as "John 3:16" and "Rom 8:28-30" into links that open Scripture cards or route.bible.
+          The links preserve the original text layout.
+        </p>
+        <p>
+          The reference finder skips <code>code</code>, <code>pre</code>, links, form fields, and elements marked
+          <code>data-scripture-inline-ignore</code>.
         </p>
         <div class="demo stack">
           <div class="demo-controls stack" role="group" aria-label="Reference controls">
@@ -91,6 +386,9 @@
           </div>
         </div>
         <div id="references-code"></div>
+        <details>
+          <summary>Options reference</summary>
+          <div class="stack">
         <div class="table-scroll">
         <table>
           <thead>
@@ -110,6 +408,8 @@
           </tbody>
         </table>
         </div>
+          </div>
+        </details>
       </section>
 
       <section class="stack" id="passage">
@@ -161,6 +461,9 @@
           <si-passage id="layout-demo" passage-id="JHN.3.16" reference="heading" theme="auto"></si-passage>
         </div>
         <div id="layout-code"></div>
+        <details>
+          <summary>Attributes, styling, and events</summary>
+          <div class="stack">
         <div class="table-scroll">
         <table>
           <thead>
@@ -197,7 +500,7 @@
         </div>
         <p>
           The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose,
-          use its part, such as <code>si-passage::part(citation) { font-style: italic; }</code>.
+          use a CSS part, such as <code>si-passage::part(citation) { font-style: italic; }</code>.
         </p>
         <div class="table-scroll">
         <table>
@@ -226,14 +529,16 @@
           </tbody>
         </table>
         </div>
+          </div>
+        </details>
       </section>
 
       <section class="stack" id="passage-input">
         <h2>Passage input</h2>
         <p>
-          <code>&lt;si-passage-input&gt;</code> picks a book, chapter, verse, or range. Focus it to browse every book, or
-          type: "Roman 8" finds Romans 8, and "Ps 119:" lists all 176 verses. Its value is the passage ID, it submits
-          with a form under <code>name</code>, and it fires <code>change</code> with <code>detail.passageId</code>.
+          Use <code>&lt;si-passage-input&gt;</code> to choose a book, chapter, verse, or range.
+          Focus the empty field to browse every book. Type "Roman 8" to find Romans 8, or "Ps 119:" to list its 176 verses.
+          The field stores a passage ID and submits it under <code>name</code>.
         </p>
         <div class="demo stack">
           <div>
@@ -244,6 +549,9 @@
           <p>Value: <code id="input-value">(empty)</code></p>
         </div>
         <div id="input-code"></div>
+        <details>
+          <summary>Attributes, styling, and events</summary>
+          <div class="stack">
         <div class="table-scroll">
         <table>
           <thead>
@@ -274,11 +582,13 @@
           they exist. To restyle it further, use its parts: <code>input</code>, <code>listbox</code>, <code>option</code>,
           and <code>count</code>, such as <code>si-passage-input::part(input) { height: 2.5rem; }</code>.
         </p>
+          </div>
+        </details>
       </section>
 
       <section class="stack" id="version-input">
         <h2>Translation picker</h2>
-        <p><code>&lt;si-version-input&gt;</code> lets readers filter by language and search translation names or abbreviations, without knowing provider IDs. Arrow keys, Enter, Escape, and form reset work, too. Typing does not change the selection until the reader picks a translation. Failed catalog requests offer Retry.</p>
+        <p>Use <code>&lt;si-version-input&gt;</code> to search translations by name or abbreviation and filter by language. The field stores the selected provider's translation ID. Typing does not change the selection until you choose a translation.</p>
         <div class="demo stack">
           <div>
             <label for="version-demo">Translation</label>
@@ -287,6 +597,10 @@
           <p>Value: <code id="version-value">BSB</code></p>
         </div>
         <div id="version-code"></div>
+        <details>
+          <summary>Attributes, styling, and events</summary>
+          <div class="stack">
+        <p>Use the arrow keys and Enter to choose a translation, or Escape to close the list. Form reset restores the initial selection. If the catalog fails to load, select <strong>Retry</strong>.</p>
         <div class="table-scroll">
         <table>
           <thead><tr><th scope="col">Attribute</th><th scope="col">Default</th><th scope="col">Purpose</th></tr></thead>
@@ -320,11 +634,13 @@ document.querySelector("si-version-input").addEventListener("change", (event) =>
 });</textarea>
         </sensible-code>
         <p>The field uses the same page style tokens as the passage input. Its parts are <code>language</code>, <code>input</code>, <code>listbox</code>, <code>option</code>, <code>status</code>, and <code>retry</code>.</p>
+          </div>
+        </details>
       </section>
 
       <section class="stack" id="javascript">
-        <h2>JavaScript</h2>
-        <p>Building with a bundler? Install <code>@faith-tools/scripture-inline</code> and call the same functions.</p>
+        <h2>JavaScript setup</h2>
+        <p>If you use a bundler, install <code>@faith-tools/scripture-inline</code> and register the components you need. The following example also finds references inside an <code>article</code> element:</p>
         <sensible-code language="js" data-wrap="true">
           <textarea readonly>import {
   definePassageInput,
@@ -342,6 +658,9 @@ scriptureInline({
   root: document.querySelector("article"),
 });</textarea>
         </sensible-code>
+        <details>
+          <summary>Exports and shared catalog</summary>
+          <div class="stack">
         <div class="table-scroll">
         <table>
           <thead>
@@ -366,19 +685,8 @@ import { listBibleVersions } from "@faith-tools/scripture-inline";
 const versions = await listBibleVersions(); // Uses the page's provider, or HelloAO
 const english = versions.filter((version) => version.language === "en");</textarea>
         </sensible-code>
-      </section>
-
-      <section class="stack" id="providers">
-        <h2>Switching providers</h2>
-        <p>YouVersion is optional. To use it, get a public app key from <a href="https://platform.youversion.com/">platform.youversion.com</a> and select the provider explicitly:</p>
-        <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js" data-provider="youversion" data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY" data-yvp-bible-version-id="3034">&lt;/script></textarea>
-        </sensible-code>
-        <p>With a bundler, pass <code>{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }</code> to <code>scriptureInline()</code> and <code>defineScripturePassage()</code>. A standalone passage can set <code>provider="youversion"</code> and <code>yvp-public-app-key="YOUR_PUBLIC_APP_KEY"</code>.</p>
-        <p><strong>Migration:</strong> Existing YouVersion integrations must add <code>data-provider="youversion"</code>, <code>provider="youversion"</code>, or <code>provider: "youversion"</code>. A public app key alone no longer selects YouVersion. The <code>yvp-*</code> settings and original YouVersion load-event fields remain supported. HelloAO uses translation IDs such as <code>BSB</code>, not YouVersion's numeric IDs.</p>
-        <p>For another provider, implement the exported <code>BibleProvider</code> interface: <code>id</code>, <code>defaultVersionId</code>, and <code>getPassage(versionId, passageId): Promise&lt;PassageDisplay&gt;</code>. The display contains safe <code>html</code>, <code>version: { id, abbreviation, title }</code>, and an <code>attribution</code> string. Optional fields are safe <code>attributionHtml</code> for links, <code>direction</code>, <code>containerAttributes</code>, and <code>stylesheets</code>. Pass the object as <code>provider</code> to either function, or assign it to a passage's <code>bibleProvider</code> property. The <code>provider</code> attribute takes precedence. Providers must sanitize both HTML fields before returning them.</p>
-        <p>For the translation picker, also implement <code>listVersions(): Promise&lt;BibleVersion[]&gt;</code>. Assign a custom provider to its <code>bibleProvider</code> property, or pass it to <code>defineVersionInput()</code>. Catalogs are scoped to the provider, including the YouVersion public app key and API host. Switching providers does not guess an equivalent translation.</p>
-        <p>HelloAO keeps headings, poetry, and words-of-Jesus formatting when supplied by the translation. Its license notice, or the translation name linked to the license, always appears below the text. Both built-in providers add a short source credit with the provider name linked: "Source: HelloAO Free Use Bible API" or "Source: YouVersion Platform". Check the translation's license before use. Passages cannot cross chapters.</p>
+          </div>
+        </details>
       </section>
 
       <footer class="stack text-muted-foreground" style="--layout-gap: 0.5rem">
@@ -388,14 +696,51 @@ const english = versions.filter((version) => version.language === "en");</textar
         </p>
         <p>
           Scripture Inline is an independent community project. It is not affiliated with, endorsed by, or supported
-          by YouVersion or Life.Church. HelloAO is the default Bible data source; YouVersion is optional.
+          by YouVersion or Life.Church. HelloAO is the default Bible data source; YouVersion and fetch.bible are optional.
         </p>
-        <p>Default Bible text from <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
+        <p>Default Bible text from <a href="https://bible.helloao.org/docs/">HelloAO's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a> and <a href="https://fetch.bible/">fetch.bible</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
       </footer>
     </main>
+    </sensible-sidebar-layout>
     <script type="module">
       import "@faith-tools/sensible-ui/code";
       import { definePassageInput, defineVersionInput, defineScripturePassage, scriptureInline } from "/src/index.ts";
+
+      const contents = document.getElementById("contents");
+      const wideLayout = matchMedia("(min-width: 64rem)");
+      const sizeContents = () => { contents.open = wideLayout.matches; };
+      sizeContents();
+      wideLayout.addEventListener("change", sizeContents);
+      contents.addEventListener("click", (event) => {
+        const link = event.target.closest("a");
+        if (!link) return;
+        if (!wideLayout.matches) contents.open = false;
+        if (link.hash === location.hash) followHash();
+      });
+
+      // Deep links reveal reference material even when its accordion starts closed.
+      const followHash = () => {
+        for (const link of contents.querySelectorAll("a")) {
+          if (link.hash === location.hash) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+        }
+        const target = document.getElementById(location.hash.slice(1));
+        if (!target) return;
+        let parent = target.closest("details");
+        while (parent) {
+          parent.open = true;
+          parent = parent.parentElement.closest("details");
+        }
+        // Opening an accordion changes the scroll extent after native fragment navigation.
+        target.scrollIntoView({ behavior: "instant", block: "start" });
+        if (!wideLayout.matches) {
+          const focus = target.matches("details") ? target.querySelector("summary") : target;
+          if (focus === target) focus.tabIndex = -1;
+          focus.focus({ preventScroll: true });
+        }
+      };
+      window.addEventListener("hashchange", followHash);
+
       defineScripturePassage();
       definePassageInput();
       defineVersionInput();
@@ -538,6 +883,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       showVersionCode();
       // Every code block is rendered; reveal the page (see the head script).
       delete document.documentElement.dataset.loading;
+      followHash();
 
     </script>
   </body>

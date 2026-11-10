@@ -1,4 +1,6 @@
-import { fetchDisplay, resolveProvider, providerDefaults as defaults, type BibleProvider, type PassageDisplay, type ProviderOptions } from "./providers";
+import { Effect } from "effect";
+import { fetchDisplayEffect, resolveProvider, resolveProviderEffect, providerDefaults as defaults, type BibleProvider, type PassageDisplay, type ProviderOptions } from "./providers";
+import { listen, nextFrame, waitForEvent } from "./dom-runtime";
 import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
 export const SCRIPTURE_PASSAGE_TAG = "si-passage";
@@ -76,7 +78,9 @@ const STYLES = `
   max-width: var(--scripture-max-width, 32rem);
   overflow-wrap: break-word;
 }
-.scripture-bible .scripture-verse-number { font: 0.65em/1 system-ui, sans-serif; color: var(--scripture-muted); }
+.scripture-bible .scripture-verse-number, .fetch-bible sup[data-v] { font: 0.65em/1 system-ui, sans-serif; color: var(--scripture-muted); }
+.fetch-bible sup[data-v] { padding-inline-end: 0.3em; }
+.scripture-bible.fetch-bible .fb-wj { color: var(--scripture-red); }
 .scripture-bible .scripture-heading { display: block; margin: 1em 0 0.5em; font: 600 0.85em/1.5 system-ui, sans-serif; }
 .scripture-bible > .scripture-heading:first-child { margin-top: 0; }
 .scripture-bible .scripture-jesus { color: var(--scripture-red); }
@@ -85,6 +89,9 @@ const STYLES = `
 :host([verse-numbers="hide"]) .scripture-verse-number { display: none; }
 :host([red-letter="off"]) .scripture-jesus { color: inherit; }
 :host([headings="hide"]) .scripture-heading { display: none; }
+:host([verse-numbers="hide"]) .fetch-bible sup[data-v] { display: none; }
+:host([red-letter="off"]) .fetch-bible .fb-wj { color: inherit; }
+:host([headings="hide"]) .fetch-bible :is(.fb-ms, .fb-ms1, .fb-ms2, .fb-ms3, .fb-ms4, .fb-mr, .fb-s, .fb-s1, .fb-s2, .fb-s3, .fb-s4, .fb-sr, .fb-r, .fb-sp, .fb-qa) { display: none; }
 /* Typography comes from --scripture-* properties, which pages set like any CSS. The fallbacks
    are bible.css's own values, except the font: Untitled Serif is YouVersion's Bible typeface,
    but bible.css defaults to Source Serif 4. */
@@ -108,7 +115,6 @@ const STYLES = `
    !important in a shadow root beats the page's rules for the host. */
 :host([aria-busy])::before, :host([aria-busy])::after { content: none !important; }
 .scripture-loading { display: flex; padding: 0.75rem 0; opacity: 0.5; }
-.scripture-loading.scripture-leaving { position: absolute; inset: 0 auto auto 0; pointer-events: none; }
 .scripture-stage { position: absolute; inset: 0 0 auto; height: 0; overflow: hidden; visibility: hidden; }
 .scripture-loading > svg { animation: scripture-spin 0.8s linear infinite; }
 @keyframes scripture-spin { to { transform: rotate(360deg); } }
@@ -179,6 +185,9 @@ export class ScripturePassage extends HTMLElement {
   /** The loaded passage, kept so a layout change re-renders without a request. */
   private loaded: { display: PassageDisplay; passageId: string } | null = null;
   private scheduled = false;
+  private cancelLoad?: () => void;
+  private cancelTheme?: () => void;
+  private cancelAnimation?: () => void;
   private readonly systemDark = matchMedia("(prefers-color-scheme: dark)");
   private readonly onSystemTheme = () => this.applyTheme();
   /** Holds everything the element shows, inside its shadow root. */
@@ -194,15 +203,17 @@ export class ScripturePassage extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.systemDark.addEventListener("change", this.onSystemTheme);
+    this.cancelTheme = Effect.runCallback(listen(this.systemDark, "change", this.onSystemTheme).pipe(Effect.andThen(Effect.never), Effect.scoped));
     // Show the loader now, not a microtask later, so whoever lays us out measures it.
     if (!this.root.childElementCount) this.showLoading();
     this.scheduleLoad();
   }
 
   disconnectedCallback(): void {
-    this.systemDark.removeEventListener("change", this.onSystemTheme);
+    this.cancelTheme?.();
+    this.cancelAnimation?.();
     this.generation += 1;
+    this.cancelLoad?.();
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -214,11 +225,19 @@ export class ScripturePassage extends HTMLElement {
 
   private scheduleLoad(): void {
     this.generation += 1;
+    this.cancelLoad?.();
+    this.cancelAnimation?.();
     if (this.scheduled) return;
     this.scheduled = true;
     queueMicrotask(() => {
       this.scheduled = false;
-      if (this.isConnected) void this.load(this.generation);
+      if (this.isConnected) this.cancelLoad = Effect.runCallback(this.load(this.generation).pipe(
+        Effect.catch((error) => Effect.sync(() => {
+          this.showError("Unable to display Bible text. Check the provider, version, and passage.");
+          this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
+        })),
+        Effect.scoped,
+      ));
     });
   }
 
@@ -314,21 +333,20 @@ export class ScripturePassage extends HTMLElement {
     this.root.replaceChildren(alert);
   }
 
-  private async load(generation: number): Promise<void> {
+  private readonly load = Effect.fn("scripture.passage.load")(function*(this: ScripturePassage, generation: number) {
+    this.loaded = null;
     const passageId = this.getAttribute("passage-id")?.trim();
     if (!passageId) {
       this.showError("Set passage-id to display Bible text.");
       return;
     }
 
-    this.loaded = null;
     if (!this.root.querySelector(":scope > .scripture-loading")) this.showLoading();
     // Cached passages resolve before the loader paints; those swap in without a grow.
     let loaderPainted = false;
-    requestAnimationFrame(() => (loaderPainted = true));
+    yield* nextFrame.pipe(Effect.andThen(Effect.sync(() => { loaderPainted = true; })), Effect.forkScoped);
 
-    try {
-      const provider = resolveProvider({
+      const provider = yield* resolveProviderEffect({
         ...defaults,
         provider: (this.getAttribute("provider") as ProviderOptions["provider"]) || this.providerOverride || defaults.provider,
         yvpPublicAppKey: this.getAttribute("yvp-public-app-key")?.trim() || defaults.yvpPublicAppKey,
@@ -340,11 +358,11 @@ export class ScripturePassage extends HTMLElement {
       const versionId = this.getAttribute("bible-version-id") ||
         (provider.id === "youversion" ? this.getAttribute("yvp-bible-version-id") : undefined) ||
         pageVersion || provider.defaultVersionId;
-      const display = await fetchDisplay(provider, versionId, passageId);
+      const display = yield* fetchDisplayEffect(provider, versionId, passageId);
       if (!this.isConnected || generation !== this.generation) return;
 
       // Wait for the Bible CSS and fonts so the text appears styled, at its final height.
-      await this.installStylesheets(display);
+      yield* this.installStylesheets(display);
       if (!this.isConnected || generation !== this.generation) return;
       const parts = this.compose(display, passageId);
 
@@ -355,31 +373,26 @@ export class ScripturePassage extends HTMLElement {
       stage.setAttribute("aria-hidden", "true");
       stage.append(...parts);
       this.root.append(stage);
+      yield* Effect.addFinalizer(() => Effect.sync(() => stage.remove()));
       void stage.offsetHeight;
-      await Promise.race([this.ownerDocument.fonts.ready, new Promise((wait) => setTimeout(wait, 3000))]);
+      yield* Effect.promise(() => this.ownerDocument.fonts.ready).pipe(Effect.timeoutOrElse({ duration: "3 seconds", orElse: () => Effect.void }));
       if (!this.isConnected || generation !== this.generation) return;
 
       const from = this.offsetHeight;
-      const loader = this.root.querySelector<HTMLElement>(":scope > .scripture-loading");
       this.root.replaceChildren(...parts);
       this.loaded = { display, passageId };
       this.applyTheme();
-      if (loaderPainted) this.growFrom(from, loader);
+      if (loaderPainted) this.growFrom(from);
       this.removeAttribute("aria-busy");
       this.dispatchEvent(new CustomEvent("scripture-load", { detail: {
         provider: provider.id, bibleVersionId: versionId, passageId, bibleVersion: display.version,
         ...(display.yvpBibleVersion ? { yvpBibleVersionId: Number(versionId), yvpBibleVersion: display.yvpBibleVersion } : {}),
       } }));
-    } catch (error) {
-      if (!this.isConnected || generation !== this.generation) return;
-      this.showError("Unable to display Bible text. Check the provider, version, and passage.");
-      this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
-    }
-  }
+  });
 
   /** Resolves once every Bible stylesheet has loaded (or failed, so text still shows). */
-  private installStylesheets(display: PassageDisplay): Promise<unknown> {
-    const loads = (display.stylesheets ?? []).map(({ kind, href }) => {
+  private installStylesheets(display: PassageDisplay) {
+    return Effect.forEach(display.stylesheets ?? [], ({ kind, href }) => Effect.suspend(() => {
       // @font-face is ignored inside a shadow root, so fonts always go on the page.
       const target = kind === "font" ? this.ownerDocument.head : this.shadowRoot!;
       const links = target.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
@@ -390,50 +403,42 @@ export class ScripturePassage extends HTMLElement {
         link.href = href;
         target.append(link);
       } else if (link.sheet || link.dataset.scriptureLoaded) {
-        return null;
+        return Effect.void;
       }
       const pending = link;
-      return new Promise((done) => {
-        const finish = () => {
-          pending.dataset.scriptureLoaded = "";
-          done(null);
-        };
-        pending.addEventListener("load", finish, { once: true });
-        pending.addEventListener("error", finish, { once: true });
-      });
-    });
-    return Promise.all(loads);
+      return waitForEvent(pending, ["load", "error"]).pipe(
+        Effect.tap(() => Effect.sync(() => { pending.dataset.scriptureLoaded = ""; })),
+        Effect.timeoutOrElse({ duration: "5 seconds", orElse: () => Effect.void }),
+      );
+    }), { concurrency: "unbounded", discard: true });
   }
 
   /**
-   * Grows from the loader's height to the passage's height. The loader fades out in place
-   * while the text fades in, with a light blur to mask the crossfade.
+   * Grows from the loader's height to the passage's height after removing the loader.
+   * The text fades in with a light blur.
    */
-  private growFrom(from: number, loader: HTMLElement | null): void {
+  private growFrom(from: number): void {
     const to = this.offsetHeight;
     const easing = "cubic-bezier(0.23, 1, 0.32, 1)";
     const text = Array.from(this.root.children) as HTMLElement[];
-
-    // Reduced motion keeps the fade and drops the movement and blur.
-    if (reducedMotion.matches) {
-      for (const el of text) el.animate({ opacity: [0, 1] }, { duration: 200, easing });
-      return;
-    }
-
-    if (loader) {
-      loader.classList.add("scripture-leaving");
-      this.root.append(loader);
-      loader.animate({ opacity: [0.5, 0] }, { duration: 150, easing }).finished.finally(() => loader.remove());
-    }
-    if (from !== to) {
-      this.style.overflow = "hidden";
-      this.animate({ height: [`${from}px`, `${to}px`] }, { duration: 280, easing }).finished.finally(() => {
-        this.style.overflow = "";
-      });
-    }
-    for (const el of text) {
-      el.animate({ opacity: [0, 1], filter: ["blur(4px)", "blur(0)"] }, { duration: 280, easing });
-    }
+    const element = this;
+    this.cancelAnimation = Effect.runCallback(Effect.gen(function*() {
+      const animations = yield* Effect.acquireRelease(Effect.sync(() => {
+        // Reduced motion keeps the fade and drops the movement and blur.
+        if (reducedMotion.matches) return text.map((el) => el.animate({ opacity: [0, 1] }, { duration: 200, easing }));
+        const animations: Animation[] = [];
+        if (from !== to) {
+          element.style.overflow = "hidden";
+          animations.push(element.animate({ height: [`${from}px`, `${to}px`] }, { duration: 280, easing }));
+        }
+        animations.push(...text.map((el) => el.animate({ opacity: [0, 1], filter: ["blur(4px)", "blur(0)"] }, { duration: 280, easing })));
+        return animations;
+      }), (animations) => Effect.sync(() => {
+        for (const animation of animations) animation.cancel();
+        element.style.overflow = "";
+      }));
+      yield* Effect.forEach(animations, (animation) => Effect.tryPromise(() => animation.finished).pipe(Effect.ignore), { concurrency: "unbounded", discard: true });
+    }).pipe(Effect.scoped));
   }
 }
 

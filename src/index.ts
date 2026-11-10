@@ -1,4 +1,5 @@
 import { createScriptureCard } from "./card";
+import { Effect } from "effect";
 import { REF_CLASS, unwrapReferences, wrapReferences } from "./scan";
 import type { ReferenceLayout } from "./scripture-passage";
 import type { ProviderOptions } from "./providers";
@@ -122,15 +123,17 @@ export function scriptureInline({
     }
   }
 
-  if (watch) observer.observe(root ?? document.documentElement, { childList: true, subtree: true });
-
-  return {
-    links,
-    stop() {
+  const stop = Effect.runCallback(Effect.gen(function*() {
+    yield* Effect.acquireRelease(Effect.sync(() => {
+      if (watch) observer.observe(root ?? document.documentElement, { childList: true, subtree: true });
+    }), () => Effect.sync(() => {
       observer.disconnect();
       listening.abort();
       card?.destroy();
       unwrapReferences(links);
-    },
-  };
+    }));
+    yield* Effect.never;
+  }).pipe(Effect.scoped, Effect.withSpan("scripture.references.watch")));
+
+  return { links, stop };
 }

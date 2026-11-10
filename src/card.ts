@@ -1,4 +1,6 @@
 import { formatPassageForDisplay, parsePassage } from "grab-bcv";
+import { Effect, Exit, Scope } from "effect";
+import { listen, nextFrame, waitForEvent } from "./dom-runtime";
 import { SCRIPTURE_PASSAGE_TAG, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
 import css from "./card.css?inline";
 import { resolveProvider, type ProviderOptions } from "./providers";
@@ -30,7 +32,9 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
   let anchor: HTMLElement | null = null;
   // A hover-opened card closes when the pointer leaves; a click pins it open.
   let openedByHover = false;
-  let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+  let cancelHover: (() => void) | undefined;
+  let cancelListeners: (() => void) | undefined;
+  const lifetime = Scope.makeUnsafe();
 
   function position() {
     if (!card || !anchor) return;
@@ -61,7 +65,7 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
 
   /** `immediate` skips the exit animation, for when another card replaces this one. */
   function close(immediate = false) {
-    clearTimeout(hoverTimer);
+    cancelHover?.();
     const closing = card;
     if (!closing) return;
     const returnFocus = anchor;
@@ -74,9 +78,11 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
       return;
     }
     closing.dataset.state = "closing";
-    const remove = () => closing.remove();
-    closing.addEventListener("transitionend", remove, { once: true });
-    setTimeout(remove, 250);
+    Effect.runSync(waitForEvent(closing, ["transitionend"]).pipe(
+      Effect.timeoutOrElse({ duration: "250 millis", orElse: () => Effect.void }),
+      Effect.ensuring(Effect.sync(() => closing.remove())),
+      Effect.forkIn(lifetime),
+    ));
     if (returnFocus && shadow.activeElement) returnFocus.focus();
   }
 
@@ -113,7 +119,7 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
     text.addEventListener("scripture-error", (event) => console.error("[scripture-inline]", (event as CustomEvent).detail));
     card.querySelector(".body")!.append(text);
     card.querySelector(".close")!.addEventListener("click", () => close());
-    card.addEventListener("pointerenter", () => clearTimeout(hoverTimer));
+    card.addEventListener("pointerenter", () => cancelHover?.());
     card.addEventListener("pointerleave", unhover);
     shadow.append(card);
 
@@ -125,7 +131,10 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
     if (!switching) {
       // Commit the start state, then animate to open on the next frame.
       card.getBoundingClientRect();
-      requestAnimationFrame(() => card && (card.dataset.state = "open"));
+      const opening = card;
+      Effect.runSync(nextFrame.pipe(Effect.andThen(Effect.sync(() => {
+        if (card === opening) opening.dataset.state = "open";
+      })), Effect.forkIn(lifetime)));
     }
   }
 
@@ -134,43 +143,43 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
     const path = event.composedPath();
     if (card && !path.includes(card) && !(anchor && path.includes(anchor))) close();
   };
-  const onMove = () => requestAnimationFrame(position);
+  const onMove = () => Effect.runSync(nextFrame.pipe(Effect.andThen(Effect.sync(position)), Effect.forkIn(lifetime)));
 
   function addListeners() {
-    document.addEventListener("keydown", onKeydown);
-    document.addEventListener("pointerdown", onPointerdown, true);
-    addEventListener("scroll", onMove, { capture: true, passive: true });
-    addEventListener("resize", onMove, { passive: true });
+    cancelListeners = Effect.runCallback(Effect.gen(function*() {
+      yield* listen(document, "keydown", onKeydown as EventListener);
+      yield* listen(document, "pointerdown", onPointerdown as EventListener, true);
+      yield* listen(window, "scroll", onMove, { capture: true, passive: true });
+      yield* listen(window, "resize", onMove, { passive: true });
+      yield* Effect.never;
+    }).pipe(Effect.scoped));
   }
 
   function removeListeners() {
-    document.removeEventListener("keydown", onKeydown);
-    document.removeEventListener("pointerdown", onPointerdown, true);
-    removeEventListener("scroll", onMove, { capture: true });
-    removeEventListener("resize", onMove);
+    cancelListeners?.();
   }
 
   /** Opens the card for `target` after a short delay, unless the pointer leaves first. */
   function hover(target: HTMLElement) {
-    clearTimeout(hoverTimer);
+    cancelHover?.();
     if (anchor === target) return;
     // Leave a pinned card alone until the reader dismisses it.
     if (card && !openedByHover) return;
-    hoverTimer = setTimeout(() => open(target, true), card ? 150 : 350);
+    cancelHover = Effect.runCallback(Effect.sleep(card ? 150 : 350).pipe(Effect.andThen(Effect.sync(() => open(target, true))), Effect.withSpan("scripture.card.hover")));
   }
 
   /** Closes a hover-opened card after a grace period, so the pointer can cross onto it. */
   function unhover(event?: PointerEvent) {
     if (event && event.pointerType !== "mouse") return;
-    clearTimeout(hoverTimer);
-    if (card && openedByHover) hoverTimer = setTimeout(close, 250);
+    cancelHover?.();
+    if (card && openedByHover) cancelHover = Effect.runCallback(Effect.sleep(250).pipe(Effect.andThen(Effect.sync(() => close())), Effect.withSpan("scripture.card.unhover")));
   }
 
   return {
     toggle(target: HTMLElement) {
       if (anchor === target && openedByHover) {
         // Clicking a hover preview keeps it open.
-        clearTimeout(hoverTimer);
+        cancelHover?.();
         openedByHover = false;
         card!.focus({ preventScroll: true });
       } else if (anchor === target) close();
@@ -186,6 +195,7 @@ export function createScriptureCard({ reference, ...options }: CardOptions) {
     /** Closes the card at once and removes its host from the page. */
     destroy() {
       close(true);
+      Effect.runSync(Scope.close(lifetime, Exit.void));
       host.remove();
     },
   };
