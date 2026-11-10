@@ -1,10 +1,10 @@
 import { FreeUseBibleApi, type ApiTranslation, type ChapterVerse } from "free-use-bible-api";
 import { Effect, Schema } from "effect";
-import { ScriptureError, type BibleDisplayProvider, type BibleVersion } from "./data-types";
-import { attributionLink, bookId, escapeHtml, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers";
-import { decodeResponse, request, withPromises } from "./runtime";
+import { ScriptureError, type BibleDisplayProvider, type BibleVersion } from "./data-types.js";
+import { attributionLink, bookId, escapeHtml, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
+import { decodeResponse, request, withPromises } from "./runtime.js";
 
-export type { BibleVersion } from "./data-types";
+export type { BibleVersion } from "./data-types.js";
 
 /** Provider-owned HTML must be safe to insert into a shadow root. */
 export type PassageDisplay = {
@@ -142,11 +142,14 @@ export function createHelloAOProvider() {
           selected = first === undefined || (item.number >= first && item.number <= last!);
           if (!selected) continue;
           if (text && !/\s$/.test(text)) text += " ";
-          let poetry = false;
+          let poetry: number | undefined;
           for (const [index, part] of item.content.entries()) {
             if (typeof part === "string" || "text" in part) {
-              const nextPoetry = typeof part !== "string" && part.poem !== undefined;
-              if ((poetry || nextPoetry) && text && !text.endsWith("\n")) text = text.trimEnd() + "\n";
+              const nextPoetry = typeof part === "string" ? undefined : part.poem;
+              const previous = item.content[index - 1];
+              const continuesAfterNote = previous !== undefined && typeof previous !== "string" && "noteId" in previous
+                && poetry !== undefined && nextPoetry === poetry;
+              if ((poetry !== undefined || nextPoetry !== undefined) && !continuesAfterNote && text && !text.endsWith("\n")) text = text.trimEnd() + "\n";
               poetry = nextPoetry;
             }
             if (typeof part === "string") text += part;
@@ -270,7 +273,12 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
       yield* validateVerses(verses.data.map((verse) => Number(verse.id)), first, last);
       const [passage, version] = yield* Effect.all([
         request("youversion.text", () => sdk.getPassage(client, Number(versionId), passageId, "text", false, false)).pipe(Effect.tap(decodeResponse(Schema.Struct({ id: Schema.String, reference: Schema.String, content: Schema.String })))),
-        request("youversion.version", () => sdk.getVersion(client, Number(versionId))).pipe(Effect.tap(decodeResponse(Schema.Struct({ id: Schema.Number, localized_title: Schema.String, localized_abbreviation: Schema.String, language_tag: Schema.String })))),
+        request("youversion.version", () => sdk.getVersion(client, Number(versionId))).pipe(Effect.tap(decodeResponse(Schema.Struct({
+          id: Schema.Number, localized_title: Schema.String, localized_abbreviation: Schema.String, language_tag: SourceLanguage,
+          copyright: Schema.optional(Schema.NullOr(Schema.String)),
+          promotional_content: Schema.optional(Schema.NullOr(Schema.String)),
+          publisher_url: Schema.optional(Schema.NullOr(Schema.String)),
+        })))),
       ], { concurrency: 2 });
       const attribution = sdk.getPassageAttribution(version);
       if (!attribution) return yield* new ScriptureError({ code: "unavailable", message: "This Bible version has no display attribution." });

@@ -42,6 +42,21 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
   expect(yield* Effect.flip(client.getPassage({ passageId: "JHN.3.4-5" }))).toMatchObject({ code: "unavailable" });
 }));
 
+it.effect("keeps poetry on one line across footnotes without merging separate lines at the same indent", () => Effect.gen(function*() {
+  vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
+    translation: { id: "BSB", name: "Berean Standard Bible", language: "eng", licenseUrl: "https://berean.bible/" },
+    book: { name: "Psalms" },
+    chapter: { number: 119, content: [{ type: "verse", number: 1, content: [
+      { text: "Blessed", poem: 1 }, { noteId: 258 },
+      { text: "are those whose way is blameless,", poem: 1 },
+      { text: "who walk in the Law of the LORD.", poem: 2 },
+      { text: "A separate line at the same indent.", poem: 2 },
+    ] }] },
+  } as ApiTranslationBookChapter);
+  const passage = yield* createScriptureClient().getPassage({ passageId: "PSA.119.1" });
+  expect(passage.text).toBe("Blessed are those whose way is blameless,\nwho walk in the Law of the LORD.\nA separate line at the same indent.");
+}));
+
 it.effect("discovers HelloAO and YouVersion books and chapters through the same public API", () => Effect.gen(function*() {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBooks").mockResolvedValue({ books: [
     { id: "JHN", name: "John", firstChapterNumber: 2, lastChapterNumber: 3 },
@@ -277,6 +292,12 @@ it.effect("uses YouVersion's text API and fresh attribution, never HTML scraping
   expect(first.instructions).toContainEqual(expect.objectContaining({ code: "youversion-commercial-use", level: "required" }));
   expect(first.instructions).toContainEqual(expect.objectContaining({ code: "youversion-ai-use", level: "required" }));
   expect((yield* client.getPassage({ passageId: "JHN.3.16-17" })).attribution.text).toContain("Updated copyright");
+  for (const malformed of [{ copyright: 42 }, { copyright: "", promotional_content: 42 }, { publisher_url: 42 }]) {
+    vi.mocked(youversion.getVersion).mockResolvedValue({ ...version, ...malformed } as unknown as typeof version);
+    expect(yield* Effect.flip(client.getPassage({ passageId: "JHN.3.16" }))).toMatchObject({ code: "invalid_response", retryable: false });
+  }
+  vi.mocked(youversion.getVersion).mockResolvedValue({ ...version, copyright: null, promotional_content: "Fallback attribution" });
+  expect((yield* client.getPassage({ passageId: "JHN.3.16" })).attribution.text).toContain("Fallback attribution");
   vi.mocked(youversion.getVersion).mockResolvedValue({ ...version, copyright: "", promotional_content: null });
   expect(yield* Effect.flip(client.getPassage({ passageId: "JHN.3.16" }))).toMatchObject({ code: "unavailable" });
   expect(yield* Effect.flip(createScriptureClient({ provider: createYouVersionProvider({}) }).getPassage({ passageId: "JHN.3.16" }))).toMatchObject({ code: "authentication" });

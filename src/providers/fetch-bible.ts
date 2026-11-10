@@ -1,13 +1,19 @@
-import { FetchClient, type FetchClientConfig, type GetResourcesItem } from "@gracious.tech/fetch-client";
+import { FetchClient, type GetResourcesItem } from "@gracious.tech/fetch-client";
 import { Effect, Schema } from "effect";
 import sanitizeHtml from "sanitize-html";
-import { ScriptureError, type BibleDisplayProvider } from "../data-types";
-import { attributionLink, bookId, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "../data-helpers";
-import { decodeResponse, request, withPromises } from "../runtime";
+import { ScriptureError, type BibleDisplayProvider } from "../data-types.js";
+import type { BibleProvider } from "../providers.js";
+import { attributionLink, bookId, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "../data-helpers.js";
+import { decodeResponse, request, withPromises } from "../runtime.js";
 
 export type FetchBibleOptions = {
   /** Explicitly declare commercial use; the upstream default is noncommercial. */
-  usage: NonNullable<FetchClientConfig["usage"]> & { commercial: boolean };
+  usage: {
+    commercial: boolean;
+    attributionless?: boolean;
+    limitless?: boolean;
+    derivatives?: boolean | "same-license";
+  };
 };
 
 const stylesheet = "https://cdn.jsdelivr.net/npm/@gracious.tech/fetch-client@2.6.0/dist/client.css";
@@ -21,7 +27,7 @@ const readSource = <A>(read: () => A) => Effect.try({ try: read, catch: (cause) 
 const textPart = Schema.Union([Schema.String, Schema.Struct({ type: Schema.Literals(["heading", "note"]), contents: Schema.String })]);
 const verseList = decodeResponse(Schema.Array(Schema.Struct({ chapter: Schema.Int, verse: Schema.Int, content: Schema.Array(textPart) })));
 
-export function createFetchBibleProvider(options: FetchBibleOptions) {
+export function createFetchBibleProvider(options: FetchBibleOptions): BibleProvider & { readonly effects: BibleDisplayProvider } {
   // Snapshot configuration so mutation cannot let cached resources bypass usage filtering.
   const config = { usage: { ...options.usage }, remember_fetches: false };
   let client = new FetchClient(config);

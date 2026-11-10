@@ -1,1 +1,1 @@
-export { createYouVersionProvider } from "../providers";
+export { createYouVersionProvider } from "../providers.js";

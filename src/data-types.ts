@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from "effect";
-import type { PassageDisplay } from "./providers";
+import type { PassageDisplay } from "./providers.js";
 
 export const BibleVersion = Schema.Struct({
   id: Schema.NonEmptyString,

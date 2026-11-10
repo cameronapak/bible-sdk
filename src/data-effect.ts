@@ -1,12 +1,12 @@
 import { Effect, Layer, Schema } from "effect";
-import { createHelloAOProvider, type BibleProvider } from "./providers";
-import { BibleBook, BibleChapter, BibleSource, BibleVersion, ScriptureError, ScripturePassage, type BibleDataProvider } from "./data-types";
-import { bookId, passageRange, requestCache } from "./data-helpers";
-import { decodeResponse as response, request } from "./runtime";
+import { createHelloAOProvider, type BibleProvider } from "./providers.js";
+import { BibleBook, BibleChapter, BibleSource, BibleVersion, ScriptureError, ScripturePassage, type BibleDataProvider } from "./data-types.js";
+import { bookId, passageRange, requestCache } from "./data-helpers.js";
+import { decodeResponse as response, request } from "./runtime.js";
 
-export { BibleBook, BibleChapter, BibleSource, BibleVersion, DisplayInstruction, ScriptureError, ScriptureErrorCode, ScripturePassage } from "./data-types";
-export type { BibleDataProvider, BibleDisplayProvider } from "./data-types";
-export { RequestPolicy } from "./runtime";
+export { BibleBook, BibleChapter, BibleSource, BibleVersion, DisplayInstruction, ScriptureError, ScriptureErrorCode, ScripturePassage } from "./data-types.js";
+export type { BibleDataProvider, BibleDisplayProvider } from "./data-types.js";
+export { RequestPolicy } from "./runtime.js";
 
 const VersionId = Schema.NonEmptyString.check(Schema.isTrimmed());
 const version = (provider: BibleDataProvider, value?: string) => Schema.decodeUnknownEffect(VersionId)(value ?? provider.defaultVersionId).pipe(

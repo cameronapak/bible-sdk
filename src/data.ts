@@ -1,8 +1,8 @@
 import { Effect } from "effect";
-import { createScriptureClient as createEffectClient } from "./data-effect";
+import { createScriptureClient as createEffectClient } from "./data-effect.js";
 
-export { ScriptureError } from "./data-types";
-export type { BibleBook, BibleChapter, BibleVersion, DisplayInstruction, ScriptureErrorCode, ScripturePassage } from "./data-types";
+export { ScriptureError } from "./data-types.js";
+export type { BibleBook, BibleChapter, BibleVersion, DisplayInstruction, ScriptureErrorCode, ScripturePassage } from "./data-types.js";
 
 /** Async/await boundary over the same validated Effect operations and caches. */
 export function createScriptureClient(options: Parameters<typeof createEffectClient>[0] = {}) {

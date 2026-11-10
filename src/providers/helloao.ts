@@ -1,1 +1,1 @@
-export { createHelloAOProvider, helloaoProvider } from "../providers";
+export { createHelloAOProvider, helloaoProvider } from "../providers.js";

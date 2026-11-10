@@ -1,7 +1,7 @@
 {
   "name": "@faith-tools/scripture-inline",
   "version": "0.4.0",
-  "description": "Drop-in Scripture for any web page: show a passage, pick a passage, or bring every Bible reference to life.",
+  "description": "Unified Bible data SDK with async and Effect APIs, plus drop-in Scripture web components.",
   "license": "MIT",
   "author": "Cameron Pak (https://cameronpak.com)",
   "homepage": "https://github.com/cameronapak/scripture-inline#readme",
@@ -55,8 +55,9 @@
     "build": "vite build && vite build --mode lib && tsc -p tsconfig.build.json",
     "build:site": "vite build --mode site",
     "typecheck": "tsc --noEmit",
+    "check:data-types": "tsc --ignoreConfig --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM scripts/check-data-types.ts",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm build:site",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:data-types && pnpm build:site",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-cdn-version.ts"
   },

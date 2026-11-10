@@ -1,6 +1,6 @@
 import { Context, Duration, Effect, Schedule, Schema } from "effect";
-import { ScriptureError, type BibleDisplayProvider } from "./data-types";
-import type { BibleProvider } from "./providers";
+import { ScriptureError, type BibleDisplayProvider } from "./data-types.js";
+import type { BibleProvider } from "./providers.js";
 
 export const decodeResponse = <S extends Schema.Constraint & { DecodingServices: never }>(schema: S) => (value: unknown) =>
   Schema.decodeUnknownEffect(schema)(value).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_response", message: "Bible provider returned invalid data.", cause })));

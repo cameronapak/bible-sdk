@@ -1,5 +1,5 @@
 import { Cache, Duration, Effect, Exit, Schema } from "effect";
-import { ScriptureError, type DisplayInstruction } from "./data-types";
+import { ScriptureError, type DisplayInstruction } from "./data-types.js";
 
 /** Validate before passing source metadata to Intl constructors. */
 export const SourceLanguage = Schema.String.check(Schema.makeFilter((value) => {
