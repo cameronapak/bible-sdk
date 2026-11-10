@@ -84,7 +84,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
 ></script>
 ```
 
@@ -405,7 +405,7 @@ Script tags support HelloAO by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.6.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
