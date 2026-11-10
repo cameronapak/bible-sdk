@@ -85,8 +85,15 @@ const STYLES = `
 .scripture-bible .scripture-heading { display: block; margin: 1em 0 0.5em; font: 600 0.85em/1.5 system-ui, sans-serif; }
 .scripture-bible > .scripture-heading:first-child { margin-top: 0; }
 .scripture-bible .scripture-jesus { color: var(--scripture-red); }
-.scripture-bible .scripture-poetry { display: block; padding-inline-start: calc(var(--indent) * 1em); }
-.scripture-bible .scripture-subtitle { margin: 0 0 0.5em; font-style: italic; }
+/* Each poetry level indents 1.5em, AO Lab's 30px at the default size. A verse number hangs in
+   the first level's indent, so every line at a level starts at the same edge. */
+.scripture-bible .scripture-poetry { display: block; padding-inline-start: calc(var(--indent) * 1.5em); }
+:host(:not([verse-numbers="hide"])) .scripture-poetry > .scripture-verse-number:first-child {
+  display: inline-block; box-sizing: border-box; width: 2.3em; margin-inline: -2.3em -0.38em;
+  padding-inline-end: 0.5em; text-align: end;
+}
+.scripture-bible .scripture-break { height: 0.625em; }
+.scripture-bible .scripture-subtitle { margin: 0 0 0.5em; font-style: italic; color: var(--scripture-muted); }
 :host([verse-numbers="hide"]) .scripture-verse-number { display: none; }
 :host([red-letter="off"]) .scripture-jesus { color: inherit; }
 :host([headings="hide"]) .scripture-heading { display: none; }
