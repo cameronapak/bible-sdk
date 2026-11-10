@@ -89,8 +89,9 @@ const STYLES = `
    the first level's indent, so every line at a level starts at the same edge. */
 .scripture-bible .scripture-poetry { display: block; padding-inline-start: calc(var(--indent) * 1.5em); }
 :host(:not([verse-numbers="hide"])) .scripture-poetry > .scripture-verse-number:first-child {
-  display: inline-block; box-sizing: border-box; width: 2.3em; margin-inline: -2.3em -0.38em;
-  padding-inline-end: 0.5em; text-align: end;
+  /* inline-flex and nowrap keep a number like 119:100 on one line; a wider number grows into the indent. */
+  display: inline-flex; justify-content: flex-end; white-space: nowrap; box-sizing: border-box;
+  width: 2.3em; margin-inline: -2.3em -0.38em; padding-inline-end: 0.5em;
 }
 .scripture-bible .scripture-break { height: 0.625em; }
 .scripture-bible .scripture-subtitle { margin: 0 0 0.5em; font-style: italic; color: var(--scripture-muted); }
