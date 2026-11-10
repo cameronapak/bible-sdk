@@ -5,7 +5,7 @@ Unified Bible data SDK with optional drop-in Scripture components. Package: `@fa
 Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messages.
 
 ## Commands
-- `amp orb services ensure` - Start the docs and demo page and print its portal. HelloAO cards and passages need no API key.
+- `amp orb services ensure` - Start the docs and demo page and print its portal. AO Lab cards and passages need no API key.
 - `pnpm dev` - The same page at http://localhost:5173, outside an orb.
 - `pnpm check` - Typecheck, tests, and build. CI runs this.
 - `pnpm build` - Browser script (`dist/bible-sdk.js`, plus the identical `dist/scripture-inline.js` compatibility copy), ES module (`dist/index.js`), and types (`dist/types`).
@@ -13,7 +13,7 @@ Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messa
 
 ## Architecture
 - `src/embed.ts` - Script tag entry. Reads `data-*` attributes and registers everything.
-- `src/providers.ts` - Shared Bible provider contract, default HelloAO adapter, and optional YouVersion adapter.
+- `src/providers.ts` - Shared Bible provider contract, default AO Lab adapter, and optional YouVersion adapter.
 - `src/index.ts` - Bundler entry and `scriptureInline()`, the reference finder.
 - `src/scripture-passage.ts` - `<bible-sk-passage>`. `src/passage-input.ts` - `<bible-sk-passage-input>`.
 - `src/version-input.ts` - `<bible-sk-version-input>`, the translation picker using the provider's shared catalog.
@@ -33,7 +33,7 @@ Read `CONTEXT.md` for the project's terms, and use them in code, docs, and messa
 
 ## Verifying UI
 - Inspect changes in the browser with `agent-browser` at desktop width and 390px, in light and dark mode. Check that `document.documentElement.scrollWidth` matches the viewport width.
-- HelloAO Scripture cards need no app key. Test the click and hover modes in the Bible references demo. Only the optional YouVersion provider needs a real public app key.
+- AO Lab Scripture cards need no app key. Test the click and hover modes in the Bible references demo. Only the optional YouVersion provider needs a real public app key.
 
 ## Releasing
 - Merging a PR with a changeset opens or updates the Version Packages PR. Merging that PR publishes to npm with trusted publishing. There is no npm token.

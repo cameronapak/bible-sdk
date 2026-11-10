@@ -44,7 +44,7 @@ it("renders only the inclusive range, escaping text and preserving formatting, s
   expect(section.querySelector(".scripture-jesus")?.textContent).toBe("<script>alert(1)</script>");
   expect(section.querySelector(".scripture-poetry")?.textContent).toBe("3 A poem");
   expect(section.querySelectorAll("br")).toHaveLength(2);
-  expect(display.attribution).toBe("Required copyright notice · Source: HelloAO Free Use Bible API");
+  expect(display.attribution).toBe("Required copyright notice · Source: AO Lab Free Use Bible API");
   const attribution = document.createElement("p");
   attribution.innerHTML = display.attributionHtml!;
   expect(attribution.textContent).toBe(display.attribution);
@@ -125,7 +125,7 @@ it("escapes license labels and never creates executable license links", async ()
   expect([...attribution.querySelectorAll("a")].map((a) => a.href)).toEqual(["https://bible.helloao.org/docs/"]);
 });
 
-it("lists HelloAO IDs unchanged and normalizes language tags for filtering", async () => {
+it("lists AO Lab IDs unchanged and normalizes language tags for filtering", async () => {
   vi.spyOn(FreeUseBibleApi.prototype, "getAvailableTranslations").mockResolvedValue({ translations: [
     { id: "ENGWEBP", shortName: "WEB", name: "World English Bible", language: "eng", languageEnglishName: "English" },
     { id: "spa_rv", shortName: "RV", name: "Reina Valera", language: "spa", languageEnglishName: "Spanish" },

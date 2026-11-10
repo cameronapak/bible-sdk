@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- 46c1717: Add an optional server-only API.Bible data provider using each application's own official SDK client. Preserve publisher notices, FUMS reporting tokens, and refresh deadlines, with provider-specific discovery cache expiry and application licensing/display guidance. HelloAO remains the default.
+- 46c1717: Add an optional server-only API.Bible data provider using each application's own official SDK client. Preserve publisher notices, FUMS reporting tokens, and refresh deadlines, with provider-specific discovery cache expiry and application licensing/display guidance. AO Lab remains the default.
 
 ## 0.6.0
 
@@ -16,7 +16,7 @@
 
 ### Minor Changes
 
-- 9d82c1e: Add a DOM-free Bible data SDK with HelloAO by default, optional YouVersion, and fetch.bible. Use async/await through `/data` or native Effect programs through `/data/effect`, sharing one implementation. Async consumers do not need a direct Effect install or import; Effect remains a runtime dependency. Return Scripture text, discovery, attribution, license metadata, and structured display instructions. Keep custom display-only providers compatible and add fetch.bible support for passages, cards, and translation pickers through its provider factory.
+- 9d82c1e: Add a DOM-free Bible data SDK with AO Lab by default, optional YouVersion, and fetch.bible. Use async/await through `/data` or native Effect programs through `/data/effect`, sharing one implementation. Async consumers do not need a direct Effect install or import; Effect remains a runtime dependency. Return Scripture text, discovery, attribution, license metadata, and structured display instructions. Keep custom display-only providers compatible and add fetch.bible support for passages, cards, and translation pickers through its provider factory.
   
   Use Effect v4 for data operations, typed Schema errors and validation, injectable BibleSource Layers, trace spans, retry/deadline policy, 256-entry discovery and provider payload caches, and interruptible component loading and scoped resources. Disable upstream response memoization. Preserve Psalm superscriptions and poetry boundaries, recover from malformed payloads, and identify documented fetch.bible trimming. Keep the released Promise-based display-provider interface as a compatibility boundary. Document instruction codes, provider-specific license metadata, and YouVersion commercial and AI-use requirements without claiming automatic legal compliance.
   
@@ -24,17 +24,17 @@
   
   Make the SDK and adapter declarations compatible with strict TypeScript NodeNext consumers, without leaking upstream fetch.bible implementation types. Check the built public entry points as part of CI.
   
-  Keep footnote-split HelloAO poetry on its original line, and classify malformed YouVersion attribution metadata as a typed invalid-response failure.
+  Keep footnote-split AO Lab poetry on its original line, and classify malformed YouVersion attribution metadata as a typed invalid-response failure.
 
 ## 0.4.0
 
 ### Minor Changes
 
-- 7960f28: Use HelloAO's Free Use Bible API and BSB by default, without an API key. Add a shared BibleProvider contract and provider/version settings for cards and passages. Keep YouVersion available through explicit provider selection, with its existing public app key, version settings, and load-event fields. Existing YouVersion integrations must select the youversion provider explicitly.
+- 7960f28: Use AO Lab's Free Use Bible API and BSB by default, without an API key. Add a shared BibleProvider contract and provider/version settings for cards and passages. Keep YouVersion available through explicit provider selection, with its existing public app key, version settings, and load-event fields. Existing YouVersion integrations must select the youversion provider explicitly.
   
   Add listBibleVersions() and a reusable si-version-input translation picker with language filtering, name/abbreviation search, keyboard selection, form submission, and catalog retry. Keep translation IDs scoped to their provider instead of guessing equivalent editions. Align poetry's first line with its verse number.
   
-  Add a concise, linked Bible provider source credit after each built-in provider's translation attribution, in passages and cards. Link the HelloAO translation name to its license when no copyright notice is supplied. Custom providers can optionally supply safe attributionHtml, with plain text still supported.
+  Add a concise, linked Bible provider source credit after each built-in provider's translation attribution, in passages and cards. Link the AO Lab translation name to its license when no copyright notice is supplied. Custom providers can optionally supply safe attributionHtml, with plain text still supported.
   
   Keep attribution links understated: underline them only on hover, with a visible keyboard focus outline.
 

@@ -9,7 +9,7 @@ Choose the surface your application needs:
 - **[Bible data SDK](#bible-data-sdk):** Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. Use async/await or native Effect v4 without a DOM.
 - **[Browser components](#getting-started):** Display passages, choose passages and translations, or turn Bible references into Scripture cards. No framework is required.
 
-Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
+Bible text comes from [AO Lab's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
 
 > Bible SDK is in preview. Expect changes before 1.0.
 
@@ -34,7 +34,7 @@ pnpm add @faith-tools/bible-sdk
 ```ts
 import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
-const scripture = createScriptureClient(); // HelloAO, default BSB
+const scripture = createScriptureClient(); // AO Lab, default BSB
 const versions = await scripture.listVersions();
 const books = await scripture.listBooks({ versionId: "BSB" });
 const chapters = await scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
@@ -46,7 +46,7 @@ console.log(passage.attribution.text);
 console.log(passage.instructions);
 ```
 
-The example returns John 3:16–18 as `passage.text`, with separate attribution and instructions. HelloAO is the default. To use another source, [choose a provider](#choose-a-bible-provider). See the [data reference](#data-reference) for supported passage IDs and result fields.
+The example returns John 3:16–18 as `passage.text`, with separate attribution and instructions. AO Lab is the default. To use another source, [choose a provider](#choose-a-bible-provider). See the [data reference](#data-reference) for supported passage IDs and result fields.
 
 ### Native Effect API
 
@@ -58,7 +58,7 @@ The same discovery and passage example, composed as one Effect program:
 import { Effect } from "effect";
 import { createScriptureClient } from "@faith-tools/bible-sdk/data/effect";
 
-const scripture = createScriptureClient(); // HelloAO, default BSB
+const scripture = createScriptureClient(); // AO Lab, default BSB
 const program = Effect.gen(function*() {
   const versions = yield* scripture.listVersions();
   const books = yield* scripture.listBooks({ versionId: "BSB" });
@@ -80,7 +80,7 @@ Use `Effect.catchTag("ScriptureError", ...)` for expected failures. Layers, `Req
 
 ### Add the script
 
-Add this script to register the browser components and turn Bible references into Scripture cards. Cards and passages use HelloAO's Berean Standard Bible (BSB) without an API key.
+Add this script to register the browser components and turn Bible references into Scripture cards. Cards and passages use AO Lab's Berean Standard Bible (BSB) without an API key.
 
 ```html
 <script
@@ -99,7 +99,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | Script tag / JavaScript | Default | Purpose |
 | --- | --- | --- |
 | `data-provider` / `provider` | `helloao` | `helloao` or `youversion`. JavaScript also accepts a `BibleProvider` object. |
-| `data-bible-version-id` / `bibleVersionId` | Provider default | `BSB` for HelloAO; `3034` for YouVersion. IDs are provider-specific. |
+| `data-bible-version-id` / `bibleVersionId` | Provider default | `BSB` for AO Lab; `3034` for YouVersion. IDs are provider-specific. |
 | `data-yvp-public-app-key` / `yvpPublicAppKey` | None | Your public app key. Required only for YouVersion. |
 | `data-yvp-api-host` / `yvpApiHost` | YouVersion's API | Another YouVersion API host, for testing. |
 | `data-mode` / `mode` | `card` | `card` opens a Scripture card. `link` links to route.bible. |
@@ -118,7 +118,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | Attribute | Default | Purpose |
 | --- | --- | --- |
 | `provider` | The script's provider, or `helloao` | `helloao` or `youversion`. |
-| `bible-version-id` | The script's version, or provider default | `BSB` for HelloAO; `3034` for YouVersion. |
+| `bible-version-id` | The script's version, or provider default | `BSB` for AO Lab; `3034` for YouVersion. |
 | `yvp-bible-version-id` | `3034` | YouVersion-only alias. `bible-version-id` takes precedence. |
 | `passage-id` | None | A USFM passage such as `ROM.8.28-30`, or a whole chapter such as `ROM.8`. Required. |
 | `reference` | `heading` | Where the reference shows: `heading`, `citation`, `quote`, or `none`. |
@@ -143,7 +143,7 @@ bible-sk-passage {
 | --- | --- | --- |
 | `--scripture-font-size` | `20px` | The Bible text size. The reference line scales with it. |
 | `--scripture-line-height` | `1.625` | Line height of the Bible text. |
-| `--scripture-font-family` | Georgia (HelloAO), Untitled Serif (YouVersion) | Font of the Bible text. |
+| `--scripture-font-family` | Georgia (AO Lab), Untitled Serif (YouVersion) | Font of the Bible text. |
 | `--scripture-max-width` | `32rem` | Line length of the text, reference, and copyright. |
 
 The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `bible-sk-passage::part(citation) { font-style: italic; }`.
@@ -226,7 +226,7 @@ Use the arrow keys and Enter to choose a translation, or Escape to close the lis
 | `scripture-versions-load` | `provider`, `versions` | The provider's catalog loads. |
 | `scripture-error` | The error | The catalog could not load. |
 
-The `value` property reads or sets the selected ID. `bibleVersion` has `id`, `abbreviation`, `title`, and optional `language` and `languageName`. An ID unavailable from the selected provider clears the field and marks it invalid. IDs are unique within a provider, not across providers. HelloAO's `BSB` and YouVersion's `3034` both name the Berean Standard Bible, but matching names or abbreviations do not guarantee identical editions.
+The `value` property reads or sets the selected ID. `bibleVersion` has `id`, `abbreviation`, `title`, and optional `language` and `languageName`. An ID unavailable from the selected provider clears the field and marks it invalid. IDs are unique within a provider, not across providers. AO Lab's `BSB` and YouVersion's `3034` both name the Berean Standard Bible, but matching names or abbreviations do not guarantee identical editions.
 
 To connect the picker to a passage using the same provider:
 
@@ -271,17 +271,17 @@ Use the shared catalog for your own controls, too:
 ```js
 import { listBibleVersions } from "@faith-tools/bible-sdk";
 
-const versions = await listBibleVersions(); // HelloAO, unless page defaults select another provider
+const versions = await listBibleVersions(); // AO Lab, unless page defaults select another provider
 const english = versions.filter((version) => version.language === "en");
 ```
 
 ## Choose a Bible provider
 
-Use HelloAO by default, or select fetch.bible, YouVersion, or API.Bible. All four support the same data API; API.Bible runs only on your server. Each client uses one provider; it never substitutes a translation or falls back to another source.
+Use AO Lab by default, or select fetch.bible, YouVersion, or API.Bible. All four support the same data API; API.Bible runs only on your server. Each client uses one provider; it never substitutes a translation or falls back to another source.
 
 | Provider | Setup | Default version ID |
 | --- | --- | --- |
-| [HelloAO](https://bible.helloao.org/docs/) | No API key. Default provider. | `BSB` |
+| [AO Lab](https://bible.helloao.org/docs/) | No API key. Default provider. | `BSB` |
 | [fetch.bible](https://fetch.bible/) | No API key. Declare your usage. | `eng_bsb` |
 | [YouVersion](https://platform.youversion.com/) | Requires a public app key. | `3034` |
 | [API.Bible](https://api.bible/) | Your own private key and official SDK client, server-only. | Explicitly choose an accessible edition. |
@@ -290,7 +290,7 @@ Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interch
 
 **YouVersion has additional paid-app and AI-use conditions.** Review the [YouVersion requirements](#youversion-requirements) before using that adapter.
 
-### HelloAO: use the default
+### AO Lab: use the default
 
 ```ts
 import { createScriptureClient } from "@faith-tools/bible-sdk/data";
@@ -300,7 +300,7 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);
 ```
 
-HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/bible-sdk/providers/helloao`.
+AO Lab preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/bible-sdk/providers/helloao`. The `helloao` provider ID, exports, and import paths remain unchanged for compatibility.
 
 ### fetch.bible: declare your usage
 
@@ -347,7 +347,7 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
 // and reports passage.reporting.token on each actual web display.
 ```
 
-Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SDK hooks/custom transports that log credentials or response bodies. Choose `defaultVersionId` from your account's `listVersions()` results, not a HelloAO or YouVersion ID. No edition is chosen automatically. Chapters exclude intro entries. Plain text preserves scriptural superscriptions and poetry, omits editorial headings and notes, and does not claim KJV numbering. Incomplete endpoint coverage fails rather than silently claiming the whole requested range; the upstream passage endpoint can limit results to 200 verses.
+Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SDK hooks/custom transports that log credentials or response bodies. Choose `defaultVersionId` from your account's `listVersions()` results, not an AO Lab or YouVersion ID. No edition is chosen automatically. Chapters exclude intro entries. Plain text preserves scriptural superscriptions and poetry, omits editorial headings and notes, and does not claim KJV numbering. Incomplete endpoint coverage fails rather than silently claiming the whole requested range; the upstream passage endpoint can limit results to 200 verses.
 
 **Application obligations:** review the [Terms](https://api.bible/terms-and-conditions), [AUP and account agreements](https://care.api.bible/article/392-how-to-create-a-new-app), and each translation's metadata. Returned instructions are guidance, not certification of compliance.
 
@@ -387,7 +387,7 @@ These requirements also appear in returned YouVersion `instructions`.
 
 ### Use providers with browser components
 
-With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:
+With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use an AO Lab or YouVersion provider object in the same way:
 
 ```js
 import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
@@ -401,7 +401,7 @@ scriptureInline({ provider });
 
 For an individual passage or translation picker, assign `element.bibleProvider = provider`. Remove any `provider` attribute because it takes precedence. fetch.bible requires a bundler import; it is not a script-tag provider name.
 
-Script tags support HelloAO by default and YouVersion through explicit settings:
+Script tags support AO Lab by default and YouVersion through explicit settings:
 
 ```html
 <script
@@ -437,7 +437,7 @@ Running `getPassage()` produces a Schema-validated, serializable `ScripturePassa
 | Field | Meaning |
 | --- | --- |
 | `text` | Plain Scripture, without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain. This is not a rich-text or lossless source model. |
-| `provider`, `source` | Provider ID, source version ID, and source URL: the HelloAO chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log. |
+| `provider`, `source` | Provider ID, source version ID, and source URL: the AO Lab chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log. |
 | `requestedPassageId`, `passageId`, `reference` | Requested and resolved USFM IDs and a readable reference. |
 | `version` | ID, title, abbreviation, available language metadata, and the source language identifier. |
 | `attribution`, `licenses` | Attribution text, source/license URLs, and available license restrictions. Empty license metadata does not grant permission. |
@@ -465,7 +465,7 @@ The built-in instruction codes are stable identifiers for explanatory guidance, 
 
 License restriction keys remain provider-specific. Review missing or unfamiliar fields:
 
-- **HelloAO:** `attribution` is `required` or `not-required`. `commercialUse` and `derivatives` are `allowed` or `not-allowed`. `copyleft` and `publicDomain` are booleans.
+- **AO Lab:** `attribution` is `required` or `not-required`. `commercialUse` and `derivatives` are `allowed` or `not-allowed`. `copyleft` and `publicDomain` are booleans.
 - **fetch.bible:** `forbid_commercial`, `forbid_derivatives`, `forbid_attributionless`, `forbid_limitless`, and `forbid_other` describe restrictions. `true` prohibits that use; `false` means the filter found no such restriction, not legal permission. `forbid_derivatives: "same-license"` requires share-alike. Multiple licenses are alternative filtered choices, not cumulative grants; select and follow a suitable license.
 - **YouVersion:** No unified license restriction flags are supplied.
 - **API.Bible:** No unified license restriction flags are supplied. Review the returned publisher notices and API.Bible account/content terms.
@@ -506,14 +506,14 @@ Built-in source requests retry network and rate-limit failures twice, with expon
 
 Each client's discovery cache and each built-in adapter's payload cache have at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.
 
-- HelloAO shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.
+- AO Lab shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.
 - API.Bible discovery and publisher metadata expire after 14 days; passage payloads are not memoized. Other built-in cache entries retain their existing lifetime until clearing/eviction. Custom data providers can set `cacheTimeToLive` to an Effect `Duration.Input` for client discovery caches. API.Bible downstream caches must honor `cache.expiresAt` and any earlier removal request.
 - Run `client.clearCache()`, or provide its Layer to `scripture.clearCache`, to clear that client's discovery and its provider's payload caches. Shared providers share those caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches.
 - The client does not memoize passage data or YouVersion attribution. Persistent caching is not provided.
 
 ### Effect configuration and custom providers
 
-Effects support fiber interruption and `Effect.runPromise(program, { signal })`. The simple async API does not expose an interruption option. HelloAO and API.Bible receive the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
+Effects support fiber interruption and `Effect.runPromise(program, { signal })`. The simple async API does not expose an interruption option. AO Lab and API.Bible receive the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
 
 Named spans connect client operations, provider operations, and upstream requests to your application's Effect tracer. The SDK does not choose a telemetry backend or export content, credentials, or errors to a hosted service. Configure an Effect tracer or OTLP layer in your application.
 
@@ -541,7 +541,7 @@ Custom data providers implement the exported `BibleDataProvider` interface with 
 
 ## Development
 
-You need Node and pnpm. The docs and demos use HelloAO and need no app key.
+You need Node and pnpm. The docs and demos use AO Lab and need no app key.
 
 | Command | What it does |
 | --- | --- |
@@ -576,7 +576,7 @@ Releases use [Changesets](https://github.com/changesets/changesets). Run `pnpm c
 ## Credits
 
 - From [Cameron Pak](https://cameronpak.com), part of [Faith Tools Software Solutions, LLC](https://faith.tools).
-- Default Bible text from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/), with optional [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) support.
+- Default Bible text from [AO Lab's Free Use Bible API](https://bible.helloao.org/docs/), with optional [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) support.
 - References parsed by [grab-bcv](https://github.com/dpshde/grab-bcv), and links open [route.bible](https://route.bible), both by [Dylan Shade](https://github.com/dpshde).
 - Docs styled with [Sensible UI](https://sensibleui.com).
 
