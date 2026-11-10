@@ -6,4 +6,4 @@ services:
     health: /
     portal:
       title: Bible SDK docs
-      description: Docs and live demos using HelloAO. No Bible API key required.
+      description: Docs and live demos using AO Lab. No Bible API key required.

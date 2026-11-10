@@ -23,7 +23,7 @@ function nextEvent(element: HTMLElement, name = "scripture-load"): Promise<Custo
   return new Promise((resolve) => element.addEventListener(name, (event) => resolve(event as CustomEvent), { once: true }));
 }
 
-it.each(["si-passage", "bible-sk-passage"] as const)("%s loads HelloAO/BSB without a key and emits provider-neutral metadata", async (tag) => {
+it.each(["si-passage", "bible-sk-passage"] as const)("%s loads AO Lab/BSB without a key and emits provider-neutral metadata", async (tag) => {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "BSB", shortName: "BSB", name: "Berean Standard Bible", language: "eng", textDirection: "ltr", licenseUrl: "https://berean.bible/" },
     book: { name: "John" },
@@ -39,10 +39,10 @@ it.each(["si-passage", "bible-sk-passage"] as const)("%s loads HelloAO/BSB witho
   expect((await loaded).detail).toMatchObject({ provider: "helloao", bibleVersionId: "BSB", passageId: "JHN.3.16" });
   expect(passage.shadowRoot?.querySelector('[part="text"]')?.textContent).toContain("For God so loved the world");
   const attribution = passage.shadowRoot!.querySelector('[part="attribution"]')!;
-  expect(attribution.textContent).toBe("Berean Standard Bible. · Source: HelloAO Free Use Bible API");
+  expect(attribution.textContent).toBe("Berean Standard Bible. · Source: AO Lab Free Use Bible API");
   expect([...attribution.querySelectorAll("a")].map((a) => [a.textContent, a.href])).toEqual([
     ["Berean Standard Bible", "https://berean.bible/"],
-    ["HelloAO Free Use Bible API", "https://bible.helloao.org/docs/"],
+    ["AO Lab Free Use Bible API", "https://bible.helloao.org/docs/"],
   ]);
   expect(passage.shadowRoot?.querySelector("link")).toBeNull();
 });

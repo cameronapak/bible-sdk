@@ -34,7 +34,7 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
   const passage = yield* client.getPassage({ passageId: "JHN.3.2-3" });
   expect(passage.text).toBe("Word next\nPoetry\nSelah\nSecond line\nAfter poem. Closed.\n\nLast selected.");
   expect(passage).toMatchObject({ provider: "helloao", reference: "John 3:2-3", version: { id: "BSB", sourceLanguage: "heb" }, numbering: "unknown" });
-  expect(passage.attribution.text).toBe("Copyright notice · Source: HelloAO Free Use Bible API");
+  expect(passage.attribution.text).toBe("Copyright notice · Source: AO Lab Free Use Bible API");
   expect(passage.licenses).toEqual([{ url: "https://example.com/license" }]);
   expect(passage.display).toMatchObject({ format: "text", direction: "rtl", whitespace: "pre-wrap", attributionPlacement: "after-passage" });
   expect(passage.instructions).toContainEqual(expect.objectContaining({ code: "display-attribution", level: "required", appliesTo: "all" }));
@@ -57,7 +57,7 @@ it.effect("keeps poetry on one line across footnotes without merging separate li
   expect(passage.text).toBe("Blessed are those whose way is blameless,\nwho walk in the Law of the LORD.\nA separate line at the same indent.");
 }));
 
-it.effect("discovers HelloAO and YouVersion books and chapters through the same public API", () => Effect.gen(function*() {
+it.effect("discovers AO Lab and YouVersion books and chapters through the same public API", () => Effect.gen(function*() {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBooks").mockResolvedValue({ books: [
     { id: "JHN", name: "John", firstChapterNumber: 2, lastChapterNumber: 3 },
   ] } as Awaited<ReturnType<FreeUseBibleApi["getTranslationBooks"]>>);

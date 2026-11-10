@@ -34,7 +34,7 @@ export interface BibleProvider {
 export type ProviderOptions = {
   /** Default: helloao. YouVersion must be selected explicitly. */
   provider?: "helloao" | "youversion" | BibleProvider;
-  /** The selected provider's version ID, such as BSB for HelloAO. */
+  /** The selected provider's version ID, such as BSB for AO Lab. */
   bibleVersionId?: string;
   yvpPublicAppKey?: string;
   yvpBibleVersionId?: number;
@@ -77,8 +77,8 @@ const youversionList = <S extends Schema.Constraint & { DecodingServices: never 
 
 function helloaoAttribution(translation: Pick<ApiTranslation, "name" | "licenseNotice" | "licenseUrl">) {
   return {
-    text: `${translation.licenseNotice || `${translation.name}. ${translation.licenseUrl}`} · Source: HelloAO Free Use Bible API`,
-    html: `${translation.licenseNotice ? escapeHtml(translation.licenseNotice) : `${attributionLink(translation.name, translation.licenseUrl)}.`} · Source: ${attributionLink("HelloAO Free Use Bible API", "https://bible.helloao.org/docs/")}`,
+    text: `${translation.licenseNotice || `${translation.name}. ${translation.licenseUrl}`} · Source: AO Lab Free Use Bible API`,
+    html: `${translation.licenseNotice ? escapeHtml(translation.licenseNotice) : `${attributionLink(translation.name, translation.licenseUrl)}.`} · Source: ${attributionLink("AO Lab Free Use Bible API", "https://bible.helloao.org/docs/")}`,
   };
 }
 
