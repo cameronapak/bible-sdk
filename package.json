@@ -1,15 +1,15 @@
 {
-  "name": "@faith-tools/scripture-inline",
+  "name": "@faith-tools/bible-sdk",
   "version": "0.5.0",
   "description": "Unified Bible data SDK with async and Effect APIs, plus drop-in Scripture web components.",
   "license": "MIT",
   "author": "Cameron Pak (https://cameronpak.com)",
-  "homepage": "https://github.com/cameronapak/scripture-inline#readme",
+  "homepage": "https://bible-sdk.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cameronapak/scripture-inline.git"
+    "url": "git+https://github.com/cameronapak/bible-sdk.git"
   },
-  "bugs": "https://github.com/cameronapak/scripture-inline/issues",
+  "bugs": "https://github.com/cameronapak/bible-sdk/issues",
   "keywords": [
     "bible",
     "scripture",
@@ -43,7 +43,7 @@
       "types": "./dist/types/providers/fetch-bible.d.ts",
       "default": "./dist/providers/fetch-bible.js"
     },
-    "./embed": "./dist/scripture-inline.js"
+    "./embed": "./dist/bible-sdk.js"
   },
   "types": "./dist/types/index.d.ts",
   "files": [

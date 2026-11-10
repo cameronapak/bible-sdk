@@ -1,4 +1,4 @@
-# Scripture Inline
+# Bible SDK
 
 A unified Bible data SDK, with optional drop-in Scripture components for web pages.
 
@@ -9,9 +9,15 @@ Choose the surface your application needs:
 - **[Bible data SDK](#bible-data-sdk):** Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. Use async/await or native Effect v4 without a DOM.
 - **[Browser components](#getting-started):** Display passages, choose passages and translations, or turn Bible references into Scripture cards. No framework is required.
 
-Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Scripture Inline is an independent community project, not affiliated with YouVersion or Life.Church.
+Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
 
-> Scripture Inline is in preview. Expect changes before 1.0.
+> Bible SDK is in preview. Expect changes before 1.0.
+
+## Migrating from Scripture Inline
+
+Bible SDK is the new name for Scripture Inline. Replace `@faith-tools/scripture-inline` with `@faith-tools/bible-sdk` in your dependencies and imports, keeping `/data`, `/data/effect`, and `/providers/*` subpaths. For script tags, update the package URL and use `dist/bible-sdk.js`; `dist/scripture-inline.js` remains an identical compatibility copy in the new package. Load only one script.
+
+Existing `si-*` elements, attributes (including `data-scripture-inline-ignore`), `scriptureInline()` and other JavaScript exports, `scripture-*` events, and CSS classes and custom properties are unchanged. Existing pinned old-package CDN URLs continue to use their original release; they do not automatically upgrade.
 
 ## Bible data SDK
 
@@ -20,11 +26,11 @@ The data SDK works in a browser, Node, or Bun without components, DOM access, CS
 Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.
 
 ```sh
-pnpm add @faith-tools/scripture-inline
+pnpm add @faith-tools/bible-sdk
 ```
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const versions = await scripture.listVersions();
@@ -48,7 +54,7 @@ The same discovery and passage example, composed as one Effect program:
 
 ```ts
 import { Effect } from "effect";
-import { createScriptureClient } from "@faith-tools/scripture-inline/data/effect";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data/effect";
 
 const scripture = createScriptureClient(); // HelloAO, default BSB
 const program = Effect.gen(function*() {
@@ -76,7 +82,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.5.0/dist/bible-sdk.js"
 ></script>
 ```
 
@@ -235,11 +241,11 @@ The field uses the same page style tokens as the passage input. Its parts are `l
 If you use a bundler, install the package and register the browser components you need:
 
 ```sh
-npm install @faith-tools/scripture-inline
+npm install @faith-tools/bible-sdk
 ```
 
 ```js
-import { defineScripturePassage, definePassageInput, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
+import { defineScripturePassage, definePassageInput, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
 
 defineScripturePassage();
 definePassageInput();
@@ -261,7 +267,7 @@ scriptureInline({ root: document.querySelector("article") });
 Use the shared catalog for your own controls, too:
 
 ```js
-import { listBibleVersions } from "@faith-tools/scripture-inline";
+import { listBibleVersions } from "@faith-tools/bible-sdk";
 
 const versions = await listBibleVersions(); // HelloAO, unless page defaults select another provider
 const english = versions.filter((version) => version.language === "en");
@@ -284,20 +290,20 @@ Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interch
 ### HelloAO: use the default
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient(); // Default BSB
 const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);
 ```
 
-HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/scripture-inline/providers/helloao`.
+HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/bible-sdk/providers/helloao`.
 
 ### fetch.bible: declare your usage
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const scripture = createScriptureClient({
   provider: createFetchBibleProvider({ usage: { commercial: false } }),
@@ -313,8 +319,8 @@ Set `usage.commercial` to your application's actual use. The example declares no
 Get a public app key from [YouVersion Platform](https://platform.youversion.com/). Replace `YOUR_PUBLIC_APP_KEY` in this example:
 
 ```ts
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createYouVersionProvider } from "@faith-tools/bible-sdk/providers/youversion";
 
 const scripture = createScriptureClient({
   provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
@@ -339,8 +345,8 @@ These requirements also appear in returned YouVersion `instructions`.
 With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:
 
 ```js
-import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 const provider = createFetchBibleProvider({ usage: { commercial: false } });
 defineScripturePassage({ provider });
@@ -354,7 +360,7 @@ Script tags support HelloAO by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.5.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -367,7 +373,7 @@ All built-in display providers add linked source credits. The fetch.bible adapte
 
 ### Build a custom display provider
 
-Implement the exported `BibleProvider` interface with `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. Return safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. Optional fields are safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Providers must sanitize both HTML fields; Scripture Inline inserts them into the shadow root.
+Implement the exported `BibleProvider` interface with `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. Return safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. Optional fields are safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Providers must sanitize both HTML fields; Bible SDK inserts them into the shadow root.
 
 Pass the object as `provider` to `defineScripturePassage()` or `scriptureInline()`, or assign it to a passage's `bibleProvider` property. A passage's `provider` attribute takes precedence.
 
@@ -434,7 +440,7 @@ An overlapping range does not establish why a particular verse is empty. Psalm r
 Async methods reject with the original `ScriptureError` for expected failures. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error remains in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. Programming defects are not converted to expected errors.
 
 ```ts
-import { createScriptureClient, ScriptureError } from "@faith-tools/scripture-inline/data";
+import { createScriptureClient, ScriptureError } from "@faith-tools/bible-sdk/data";
 
 const scripture = createScriptureClient();
 try {
@@ -462,7 +468,7 @@ Named spans connect client operations, provider operations, and upstream request
 
 ```ts
 import { Effect } from "effect";
-import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data/effect";
+import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/bible-sdk/data/effect";
 
 const client = createScriptureClient();
 const program = scripture.getPassage({ passageId: "JHN.3.16" }).pipe(

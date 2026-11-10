@@ -1,6 +1,8 @@
-# Scripture Inline Context
+# Bible SDK Context
 
-Scripture Inline provides a unified, DOM-free Bible data SDK with optional browser UI. The SDK discovers versions, books, and chapters and returns Scripture with attribution, source limitations, and display guidance. The reference finder and web components add framework-free passages and passage/translation inputs. Bible text comes from HelloAO's Free Use Bible API by default, with optional YouVersion Platform and fetch.bible adapters. The project is independent and not affiliated with YouVersion.
+Bible SDK provides a unified, DOM-free Bible data SDK with optional browser UI. The SDK discovers versions, books, and chapters and returns Scripture with attribution, source limitations, and display guidance. The reference finder and web components add framework-free passages and passage/translation inputs. Bible text comes from HelloAO's Free Use Bible API by default, with optional YouVersion Platform and fetch.bible adapters. The project is independent and not affiliated with YouVersion.
+
+Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bible-sdk`. Existing `si-*` elements, `scriptureInline()` and other JavaScript exports, attributes, `scripture-*` events, CSS names, and Effect service keys remain compatible. The old browser-script filename is included alongside `bible-sdk.js`.
 
 ## Terms
 
@@ -27,6 +29,6 @@ Scripture Inline provides a unified, DOM-free Bible data SDK with optional brows
 ## Boundaries
 
 - No React or other framework. Components are plain custom elements.
-- `src/providers.ts` owns the existing display contract and the HelloAO/YouVersion adapters. `src/data-effect.ts` and `src/data-types.ts` own the shared Effect data API and instructions contract; `src/data.ts` runs those operations at the Promise boundary. `src/providers/fetch-bible.ts` uses the official fetch.bible client and sanitizes native HTML. Built-in providers share transport and metadata between data and display; custom display-only providers need not implement data methods. Scripture Inline does not own Bible data.
+- `src/providers.ts` owns the existing display contract and the HelloAO/YouVersion adapters. `src/data-effect.ts` and `src/data-types.ts` own the shared Effect data API and instructions contract; `src/data.ts` runs those operations at the Promise boundary. `src/providers/fetch-bible.ts` uses the official fetch.bible client and sanitizes native HTML. Built-in providers share transport and metadata between data and display; custom display-only providers need not implement data methods. Bible SDK does not own Bible data.
 - Sensible UI styles only the docs page. The published components don't depend on it.
 - Effect owns asynchronous workflows, request policy, tracing, caches, and resource lifetimes. The released Promise-based display-provider methods remain compatibility edges. Pure parsing, formatting, and synchronous DOM updates remain plain code inside Effect boundaries.

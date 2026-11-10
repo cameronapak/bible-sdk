@@ -6,6 +6,15 @@ import { defineConfig } from "vite";
 export default defineConfig(({ mode }) => ({
   envPrefix: ["VITE_", "YVP_"],
   server: { host: true, allowedHosts: true },
+  plugins: [{
+    name: "legacy-embed-filename",
+    generateBundle(_options, bundle) {
+      const embed = bundle["bible-sdk.js"];
+      if (embed?.type === "chunk") {
+        this.emitFile({ type: "asset", fileName: "scripture-inline.js", source: embed.code });
+      }
+    },
+  }],
   build:
     mode === "site"
       ? { outDir: "dist-site" }
@@ -25,6 +34,6 @@ export default defineConfig(({ mode }) => ({
             rolldownOptions: { external: [/^@youversion\//, /^@gracious\.tech\//, /^effect(?:\/|$)/, "free-use-bible-api", "grab-bcv", "sanitize-html"] },
           }
         : {
-            lib: { entry: "src/embed.ts", name: "ScriptureInline", formats: ["iife"], fileName: () => "scripture-inline.js" },
+            lib: { entry: "src/embed.ts", name: "BibleSDK", formats: ["iife"], fileName: () => "bible-sdk.js" },
           },
 }));

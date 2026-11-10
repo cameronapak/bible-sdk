@@ -1,10 +1,10 @@
 // Compile-only consumer check, run after building the package declarations.
 import { Effect } from "effect";
-import { createScriptureClient, ScriptureError, type ScripturePassage, type ScriptureErrorCode } from "@faith-tools/scripture-inline/data";
-import { createScriptureClient as createEffectClient } from "@faith-tools/scripture-inline/data/effect";
-import { createHelloAOProvider } from "@faith-tools/scripture-inline/providers/helloao";
-import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+import { createScriptureClient, ScriptureError, type ScripturePassage, type ScriptureErrorCode } from "@faith-tools/bible-sdk/data";
+import { createScriptureClient as createEffectClient } from "@faith-tools/bible-sdk/data/effect";
+import { createHelloAOProvider } from "@faith-tools/bible-sdk/providers/helloao";
+import { createYouVersionProvider } from "@faith-tools/bible-sdk/providers/youversion";
+import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
 
 export function checkDataTypes(error: unknown) {
   const helloao = createHelloAOProvider();
