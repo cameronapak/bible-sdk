@@ -173,7 +173,7 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0(jsdom@30.1.3)
       effect:
-        specifier: 4.1.2
+        specifier: ^4.1.2
         version: 4.1.2
       free-use-bible-api:
         specifier: ^1.16.0
@@ -192,8 +192,8 @@ importers:
         specifier: 4.1.2
         version: 4.1.2(effect@4.1.2)(vitest@5.0.5(jsdom@30.1.3)(vite@8.3.5(yaml@2.9.1)))
       '@faith-tools/sensible-ui':
-        specifier: 1.7.0
-        version: 1.7.0
+        specifier: 1.8.2
+        version: 1.8.2
       '@types/sanitize-html':
         specifier: ^2.16.2
         version: 2.16.2
@@ -344,8 +344,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@faith-tools/sensible-ui@1.7.0':
-    resolution: {integrity: sha512-Mgf5zvGahwMkQ5iGI26nG+eL66ufuRYL3i1qfCuXPMGdPi8na2W4mriojYGHk667qXomP6VFJGBbEMp71IByIQ==}
+  '@faith-tools/sensible-ui@1.8.2':
+    resolution: {integrity: sha512-2VtNfMbOCd3Fq2Ej7OGl8kbp0E4tAtzwDrY+v0VoUeL4e5axko3IoHk5EVy/1ZFogKeb/bDR6TxjMCCqBC+fqg==}
 
   '@gracious.tech/bible-references@1.2.1':
     resolution: {integrity: sha512-QWIYnzrVCIcATNq08l+dyxOxPh4557Lpfmael65X3dtBnxUNFHWVMz5KkawxRuhIcr58NnI3IL47Az9a/E4pUA==}
@@ -1255,7 +1255,7 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@faith-tools/sensible-ui@1.7.0': {}
+  '@faith-tools/sensible-ui@1.8.2': {}
 
   '@gracious.tech/bible-references@1.2.1': {}
 

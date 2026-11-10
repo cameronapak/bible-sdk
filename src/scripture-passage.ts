@@ -115,7 +115,6 @@ const STYLES = `
    !important in a shadow root beats the page's rules for the host. */
 :host([aria-busy])::before, :host([aria-busy])::after { content: none !important; }
 .scripture-loading { display: flex; padding: 0.75rem 0; opacity: 0.5; }
-.scripture-loading.scripture-leaving { position: absolute; inset: 0 auto auto 0; pointer-events: none; }
 .scripture-stage { position: absolute; inset: 0 0 auto; height: 0; overflow: hidden; visibility: hidden; }
 .scripture-loading > svg { animation: scripture-spin 0.8s linear infinite; }
 @keyframes scripture-spin { to { transform: rotate(360deg); } }
@@ -380,11 +379,10 @@ export class ScripturePassage extends HTMLElement {
       if (!this.isConnected || generation !== this.generation) return;
 
       const from = this.offsetHeight;
-      const loader = this.root.querySelector<HTMLElement>(":scope > .scripture-loading");
       this.root.replaceChildren(...parts);
       this.loaded = { display, passageId };
       this.applyTheme();
-      if (loaderPainted) this.growFrom(from, loader);
+      if (loaderPainted) this.growFrom(from);
       this.removeAttribute("aria-busy");
       this.dispatchEvent(new CustomEvent("scripture-load", { detail: {
         provider: provider.id, bibleVersionId: versionId, passageId, bibleVersion: display.version,
@@ -416,10 +414,10 @@ export class ScripturePassage extends HTMLElement {
   }
 
   /**
-   * Grows from the loader's height to the passage's height. The loader fades out in place
-   * while the text fades in, with a light blur to mask the crossfade.
+   * Grows from the loader's height to the passage's height after removing the loader.
+   * The text fades in with a light blur.
    */
-  private growFrom(from: number, loader: HTMLElement | null): void {
+  private growFrom(from: number): void {
     const to = this.offsetHeight;
     const easing = "cubic-bezier(0.23, 1, 0.32, 1)";
     const text = Array.from(this.root.children) as HTMLElement[];
@@ -429,11 +427,6 @@ export class ScripturePassage extends HTMLElement {
         // Reduced motion keeps the fade and drops the movement and blur.
         if (reducedMotion.matches) return text.map((el) => el.animate({ opacity: [0, 1] }, { duration: 200, easing }));
         const animations: Animation[] = [];
-        if (loader) {
-          loader.classList.add("scripture-leaving");
-          element.root.append(loader);
-          animations.push(loader.animate({ opacity: [0.5, 0] }, { duration: 150, easing }));
-        }
         if (from !== to) {
           element.style.overflow = "hidden";
           animations.push(element.animate({ height: [`${from}px`, `${to}px`] }, { duration: 280, easing }));
@@ -443,7 +436,6 @@ export class ScripturePassage extends HTMLElement {
       }), (animations) => Effect.sync(() => {
         for (const animation of animations) animation.cancel();
         element.style.overflow = "";
-        loader?.remove();
       }));
       yield* Effect.forEach(animations, (animation) => Effect.tryPromise(() => animation.finished).pipe(Effect.ignore), { concurrency: "unbounded", discard: true });
     }).pipe(Effect.scoped));

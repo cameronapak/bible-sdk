@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
             lib: {
               entry: {
                 index: "src/index.ts", data: "src/data.ts",
+                "data/effect": "src/data-effect.ts",
                 "providers/helloao": "src/providers/helloao.ts",
                 "providers/youversion": "src/providers/youversion.ts",
                 "providers/fetch-bible": "src/providers/fetch-bible.ts",

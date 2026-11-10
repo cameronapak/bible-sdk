@@ -4,7 +4,8 @@ import { Effect, Fiber, Layer, Schema, Tracer } from "effect";
 import { TestClock } from "effect/testing";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
 import * as youversion from "@youversion/platform-core";
-import { BibleSource, RequestPolicy, ScriptureError, createScriptureClient, scripture, type BibleDataProvider } from "./data";
+import { BibleSource, RequestPolicy, ScriptureError, createScriptureClient, scripture, type BibleDataProvider } from "./data-effect";
+import { createScriptureClient as createAsyncClient, ScriptureError as AsyncScriptureError } from "./data";
 import { createYouVersionProvider, type BibleProvider } from "./providers";
 import { createFetchBibleProvider } from "./providers/fetch-bible";
 
@@ -123,6 +124,26 @@ it.effect("discovers fetch.bible versions/books/chapters and returns source-scop
   expect((yield* client.getPassage({ passageId: "PSA.1.1" })).text).toBe("A Psalm of David & Asaph.\n\nFirst verse.");
   expect((yield* client.getPassage({ passageId: "PSA.1.2" })).text).toBe("Second verse.");
 }));
+
+it("offers async discovery, passages, cache clearing, and original typed errors without running Effects", async () => {
+  fetchResources();
+  const client = createAsyncClient({ provider: createFetchBibleProvider({ usage: { commercial: true } }) });
+  expect(client.provider).toBe("fetch-bible");
+  expect((await client.listVersions()).map((version) => version.id)).toEqual(["eng_bsb"]);
+  expect(await client.listBooks()).toEqual([{ id: "PSA", title: "Psalms" }, { id: "3JN", title: "Third John" }]);
+  expect(await client.listChapters({ bookId: "3JN" })).toEqual([{ number: 1, passageId: "3JN.1" }]);
+  const passage = await client.getPassage({ passageId: "3JN.1.2-3" });
+  expect(passage.text).toBe("Selected words.");
+  expect(passage.attribution.text).toBe("[Public domain - Required owner credit] · Source: fetch.bible");
+  expect(passage.instructions).toContainEqual(expect.objectContaining({ code: "display-attribution", level: "required" }));
+  const native = createScriptureClient({ provider: createFetchBibleProvider({ usage: { commercial: true } }) });
+  expect(passage).toEqual(await Effect.runPromise(native.getPassage({ passageId: "3JN.1.2-3" })));
+  await client.clearCache();
+  expect((await client.getPassage({ passageId: "3JN.1.3" })).text).toBe("");
+  await expect(client.getPassage({ passageId: "3JN.1.5" })).rejects.toBeInstanceOf(AsyncScriptureError);
+  await expect(client.getPassage({ passageId: "3JN.1.5" })).rejects.toMatchObject({ code: "unavailable" });
+  await expect(client.getPassage({ passageId: "3JN.1.3-2" })).rejects.toMatchObject({ code: "invalid_reference" });
+});
 
 it.effect("preserves a valid empty verse slot but rejects nonexistent chapters, books, versions, and endpoints", () => Effect.gen(function*() {
   fetchResources();

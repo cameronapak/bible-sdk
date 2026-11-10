@@ -47,6 +47,34 @@ it("loads HelloAO/BSB without a key and emits provider-neutral metadata", async 
   expect(passage.shadowRoot?.querySelector("link")).toBeNull();
 });
 
+it("removes the spinner before showing Scripture, even while the entrance animation is running", async () => {
+  // jsdom cannot resolve direct :scope children within a shadow root as browsers do.
+  const querySelector = Element.prototype.querySelector;
+  vi.spyOn(Element.prototype, "querySelector").mockImplementation(function(this: Element, selector: string) {
+    return selector.startsWith(":scope > ")
+      ? [...this.children].find((child) => child.matches(selector.slice(9))) ?? null
+      : querySelector.call(this, selector);
+  });
+  vi.spyOn(HTMLElement.prototype, "animate").mockImplementation(() => ({
+    finished: new Promise(() => {}), cancel() {},
+  }) as unknown as Animation);
+  let finish!: (value: Awaited<ReturnType<BibleProvider["getPassage"]>>) => void;
+  const passage = document.createElement("si-passage");
+  passage.bibleProvider = { id: "delayed", defaultVersionId: "delayed", getPassage: () => new Promise((resolve) => { finish = resolve; }) };
+  passage.setAttribute("passage-id", "JHN.3.16");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  expect(passage.getAttribute("aria-busy")).toBe("true");
+  expect(passage.shadowRoot?.querySelector('[role="status"]')).not.toBeNull();
+  finish({ html: "Loaded Scripture", version: { id: "delayed", title: "Delayed", abbreviation: "D" }, attribution: "Owner" });
+  await loaded;
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  expect(passage.hasAttribute("aria-busy")).toBe(false);
+  expect(passage.shadowRoot?.querySelector('[part="text"]')?.textContent).toBe("Loaded Scripture");
+  expect(passage.shadowRoot?.querySelector('[role="status"]')).toBeNull();
+});
+
 it("does not resurrect cleared Scripture when display attributes change", async () => {
   const passage = document.createElement("si-passage");
   passage.bibleProvider = { id: "fixture", defaultVersionId: "fixture", async getPassage() { return { html: "Previous text", version: { id: "fixture", title: "Fixture", abbreviation: "F" }, attribution: "Owner" }; } };

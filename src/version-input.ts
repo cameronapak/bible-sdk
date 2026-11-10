@@ -10,12 +10,21 @@ const STYLES = `
 input, select, button { box-sizing: border-box; font: inherit; color: inherit; }
 input, select {
   width: 100%; min-width: 0; height: 2.25rem; margin: 0; padding: 0.25rem 0.75rem;
-  background: var(--popover, Canvas); border: 1px solid var(--input, color-mix(in srgb, currentColor 20%, transparent));
+  background: none; border: 1px solid var(--input, color-mix(in srgb, currentColor 20%, transparent));
   border-radius: calc(var(--radius, 0.625rem) - 2px); outline: none; box-shadow: 0 1px 2px #0000000d;
+  transition: color 0.15s, box-shadow 0.15s;
 }
-input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--ring, Highlight); outline-offset: 2px; }
+input:focus-visible, select:focus-visible {
+  border-color: var(--ring, Highlight);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring, Highlight) 50%, transparent);
+}
+button:focus-visible { outline: 2px solid var(--ring, Highlight); outline-offset: 2px; }
 input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 input[aria-invalid="true"] { border-color: var(--destructive, #dc2626); }
+.language { position: relative; }
+.language select { appearance: none; padding-inline-end: 2.5rem; }
+.language svg { position: absolute; inset-inline-end: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.language select:disabled + svg { opacity: 0.5; }
 .search { position: relative; }
 [role="listbox"] {
   position: absolute; inset: calc(100% + 4px) 0 auto; z-index: 50; box-sizing: border-box;
@@ -30,11 +39,12 @@ input[aria-invalid="true"] { border-color: var(--destructive, #dc2626); }
 .language-name { display: block; font-size: 0.75rem; opacity: 0.7; }
 .feedback { display: flex; align-items: center; gap: 0.5rem; min-height: 1.5rem; font-size: 0.75rem; }
 [role="status"] { display: flex; align-items: center; gap: 0.375rem; }
-svg { flex: none; animation: spin 0.8s linear infinite; }
+svg { flex: none; }
+[role="status"] svg { animation: spin 0.8s linear infinite; }
 button { border: 0; padding: 0; background: none; text-decoration: underline; cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (pointer: coarse) { input, select { font-size: 16px; } }
-@media (prefers-reduced-motion: reduce) { svg { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: reduce) { [role="status"] svg { animation-duration: 2.4s; } }
 @media (hover: hover) and (pointer: fine) { [role="option"]:hover { background: var(--accent, color-mix(in srgb, currentColor 10%, transparent)); } }
 `;
 
@@ -72,13 +82,18 @@ export class ScriptureVersionInput extends HTMLElement {
     style.textContent = STYLES;
     const root = document.createElement("div");
     root.className = "root";
+    const language = document.createElement("div");
+    language.className = "language";
+    language.append(this.language);
+    // Lucide chevron-down; decorative so the native select keeps its accessible name.
+    language.insertAdjacentHTML("beforeend", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
     const search = document.createElement("div");
     search.className = "search";
     search.append(this.input, this.list);
     const feedback = document.createElement("div");
     feedback.className = "feedback";
     feedback.append(this.status, this.retry);
-    root.append(this.language, search, feedback);
+    root.append(language, search, feedback);
     this.attachShadow({ mode: "open" }).append(style, root);
 
     this.input.type = "text";

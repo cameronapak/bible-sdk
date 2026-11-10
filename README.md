@@ -6,21 +6,73 @@ A unified Bible data SDK, with optional drop-in Scripture components for web pag
 
 Choose the surface your application needs:
 
-- **[Bible data SDK](#bible-data-sdk).** Discover versions, books, and chapters, and retrieve Scripture with attribution, source limitations, and display guidance through one DOM-free Effect v4 API. HelloAO is the default; YouVersion and fetch.bible are optional adapters.
-- **[Browser UI](#getting-started).** Use the reference finder and web components without choosing a framework:
-
-  - **Bible references.** A script finds references such as "John 3:16" or "Rom 8:28-30" in your page's text. It makes each one open a Scripture card or link to [route.bible](https://route.bible).
-  - **`<si-passage>`** shows a Bible passage.
-  - **`<si-passage-input>`** is a form field that lets readers pick a passage, with autocomplete for books, chapters, and verses.
-  - **`<si-version-input>`** lets readers choose a translation by name and language, without knowing its ID.
+- **[Bible data SDK](#bible-data-sdk):** Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. Use async/await or native Effect v4 without a DOM.
+- **[Browser components](#getting-started):** Display passages, choose passages and translations, or turn Bible references into Scripture cards. No framework is required.
 
 Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Scripture Inline is an independent community project, not affiliated with YouVersion or Life.Church.
 
 > Scripture Inline is in preview. Expect changes before 1.0.
 
+## Bible data SDK
+
+The data SDK works in a browser, Node, or Bun without components, DOM access, CSS injection, or page-wide component defaults. Import `/data` for async/await, or [`/data/effect`](#native-effect-api) for native Effect programs. Both use the same Effect v4 implementation, validation, errors, and caching.
+
+Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.
+
+```sh
+pnpm add @faith-tools/scripture-inline
+```
+
+```ts
+import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+
+const scripture = createScriptureClient(); // HelloAO, default BSB
+const versions = await scripture.listVersions();
+const books = await scripture.listBooks({ versionId: "BSB" });
+const chapters = await scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
+const passage = await scripture.getPassage({
+  versionId: "BSB", passageId: "JHN.3.16-18",
+});
+console.log(passage.text);
+console.log(passage.attribution.text);
+console.log(passage.instructions);
+```
+
+The example returns John 3:16–18 as `passage.text`, with separate attribution and instructions. HelloAO is the default. To use fetch.bible or YouVersion, [choose a provider](#choose-a-bible-provider). See the [data reference](#data-reference) for supported passage IDs and result fields.
+
+### Native Effect API
+
+If your application uses Effect, install `effect@^4` directly and import from `/data/effect`. Methods return lazy Effects with the same results and `ScriptureError` in the failure channel.
+
+The same discovery and passage example, composed as one Effect program:
+
+```ts
+import { Effect } from "effect";
+import { createScriptureClient } from "@faith-tools/scripture-inline/data/effect";
+
+const scripture = createScriptureClient(); // HelloAO, default BSB
+const program = Effect.gen(function*() {
+  const versions = yield* scripture.listVersions();
+  const books = yield* scripture.listBooks({ versionId: "BSB" });
+  const chapters = yield* scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
+  const passage = yield* scripture.getPassage({
+    versionId: "BSB", passageId: "JHN.3.16-18",
+  });
+  console.log(passage.text);
+  console.log(passage.attribution.text);
+  console.log(passage.instructions);
+});
+
+await Effect.runPromise(program);
+```
+
+Use `Effect.catchTag("ScriptureError", ...)` for expected failures. Layers, `RequestPolicy`, and service-based `scripture` programs are exported from `/data/effect`, not `/data`. See [Effect configuration and custom providers](#effect-configuration-and-custom-providers) for composition and testing.
+
 ## Getting started
 
 ### Add the script
+
+Add this script to register the browser components and turn Bible references into Scripture cards. Cards and passages use HelloAO's Berean Standard Bible (BSB) without an API key.
 
 ```html
 <script
@@ -28,13 +80,13 @@ Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/d
 ></script>
 ```
 
-The script registers the components and turns Bible references into Scripture cards using HelloAO's Berean Standard Bible (BSB). Cards and passages work without configuration.
-
-Attributes that start with `yvp-` are YouVersion Platform settings. Passage IDs such as `JHN.3.16` use the [USFM](https://ubsicap.github.io/usfm/) book codes, so they have no prefix.
+To use another source, [choose a provider](#choose-a-bible-provider). Attributes that start with `yvp-` are YouVersion settings. Passage IDs such as `JHN.3.16` use [USFM book codes](https://ubsicap.github.io/usfm/).
 
 ## Bible references
 
-The script looks for references in the page's text, including abbreviations. It skips text in `code`, `pre`, links, form fields, and anything marked `data-scripture-inline-ignore`. Links lay out exactly like the text they replace, so lines never reflow. The script keeps watching the page, so it also finds references in content that loads later, including pages that Turbo or Astro view transitions swap in. Mark content that React or another framework renders with `data-scripture-inline-ignore`, because the framework expects its text to stay as it left it.
+Turn references such as "John 3:16" and "Rom 8:28-30" into links that open Scripture cards or [route.bible](https://route.bible). The links preserve the original text layout.
+
+The reference finder skips `code`, `pre`, links, form fields, and elements marked `data-scripture-inline-ignore`. It also finds references in content added later, including pages that Turbo or Astro view transitions swap in. Mark content that React or another framework renders with `data-scripture-inline-ignore` so the reference finder does not modify framework-owned text.
 
 | Script tag / JavaScript | Default | Purpose |
 | --- | --- | --- |
@@ -112,7 +164,7 @@ The passage renders in a shadow root, so page CSS can't change it by accident. T
 </form>
 ```
 
-Readers can type a book, chapter, or verse, including typos like "Roman 8". The field suggests matches and stores a USFM ID such as `ROM.8` or `ROM.8.1`. When the field is focused and empty, it lists every book.
+Use the field to choose a book, chapter, verse, or range. Focus the empty field to browse every book. Type "Roman 8" to find Romans 8. The field stores a USFM ID such as `ROM.8` or `ROM.8.1`.
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
@@ -145,7 +197,9 @@ input.addEventListener("change", (event) => {
 <si-version-input id="translation" name="translation" value="BSB"></si-version-input>
 ```
 
-Readers can filter by language and search translation names or abbreviations. The field starts with the selected translation's language, or the browser's language. It supports arrow keys, Enter, Escape, and form reset. Typing does not change the selection until the reader picks a translation. Failed catalog requests offer Retry.
+Search translations by name or abbreviation and filter by language. The field starts with the selected translation's language, or the browser's language. Typing does not change the selection until you choose a translation.
+
+Use the arrow keys and Enter to choose a translation, or Escape to close the list. Form reset restores the initial selection. If the catalog fails to load, select **Retry**.
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
@@ -178,7 +232,7 @@ The field uses the same page style tokens as the passage input. Its parts are `l
 
 ## JavaScript
 
-With a bundler, install the package and call the same functions the script tag uses:
+If you use a bundler, install the package and register the browser components you need:
 
 ```sh
 npm install @faith-tools/scripture-inline
@@ -213,84 +267,117 @@ const versions = await listBibleVersions(); // HelloAO, unless page defaults sel
 const english = versions.filter((version) => version.language === "en");
 ```
 
-## Switching providers
+## Choose a Bible provider
 
-To use YouVersion, get a public app key from [platform.youversion.com](https://platform.youversion.com/) and select the provider explicitly:
+Use HelloAO by default, or select fetch.bible or YouVersion. All three support the same data API. Each client uses one provider; it never substitutes a translation or falls back to another source.
+
+| Provider | Setup | Default version ID |
+| --- | --- | --- |
+| [HelloAO](https://bible.helloao.org/docs/) | No API key. Default provider. | `BSB` |
+| [fetch.bible](https://fetch.bible/) | No API key. Declare your usage. | `eng_bsb` |
+| [YouVersion](https://platform.youversion.com/) | Requires a public app key. | `3034` |
+
+Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.
+
+**YouVersion has additional paid-app and AI-use conditions.** Review the [YouVersion requirements](#youversion-requirements) before using that adapter.
+
+### HelloAO: use the default
+
+```ts
+import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+
+const scripture = createScriptureClient(); // Default BSB
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);
+```
+
+HelloAO preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import `createHelloAOProvider` from `@faith-tools/scripture-inline/providers/helloao`.
+
+### fetch.bible: declare your usage
+
+```ts
+import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+
+const scripture = createScriptureClient({
+  provider: createFetchBibleProvider({ usage: { commercial: false } }),
+}); // Default eng_bsb
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);
+```
+
+Set `usage.commercial` to your application's actual use. The example declares noncommercial use. The `derivatives`, `attributionless`, and `limitless` filters default to `false`, `false`, and `true`. Filters are not legal permission; review each translation's terms. The adapter uses the official collection.
+
+### YouVersion: add a public app key
+
+Get a public app key from [YouVersion Platform](https://platform.youversion.com/). Replace `YOUR_PUBLIC_APP_KEY` in this example:
+
+```ts
+import { createScriptureClient } from "@faith-tools/scripture-inline/data";
+import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
+
+const scripture = createScriptureClient({
+  provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
+}); // Default 3034
+const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+console.log(passage.text, passage.attribution);
+```
+
+#### YouVersion requirements
+
+YouVersion has no commercial-use flag. Its [Platform terms](https://platform.youversion.com/terms) do not grant Bible-content rights. Check the selected publisher's license and applicable Tool terms.
+
+- Paid applications are permitted subject to conditions, including conspicuously stating that the YouVersion Bible App is free. This is neither blanket permission nor a blanket commercial prohibition.
+- The terms prohibit using Tools with AI for open-ended user chat except to retrieve and display Scripture verbatim.
+- The terms prohibit using Tools to train, develop, refine, or improve AI. Cases beyond expressly permitted uses need prior written YouVersion approval.
+- AI-assisted engineering and content generation have separate permissions and conditions in those terms.
+
+These requirements also appear in returned YouVersion `instructions`.
+
+### Use providers with browser components
+
+With a bundler, pass the same provider object to the components and reference finder. This example uses fetch.bible; use a HelloAO or YouVersion provider object in the same way:
+
+```js
+import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/scripture-inline";
+import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
+
+const provider = createFetchBibleProvider({ usage: { commercial: false } });
+defineScripturePassage({ provider });
+defineVersionInput({ provider });
+scriptureInline({ provider });
+```
+
+For an individual passage or translation picker, assign `element.bibleProvider = provider`. Remove any `provider` attribute because it takes precedence. fetch.bible requires a bundler import; it is not a script-tag provider name.
+
+Script tags support HelloAO by default and YouVersion through explicit settings:
 
 ```html
 <script
   src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
-  data-yvp-bible-version-id="3034"
+  data-bible-version-id="3034"
 ></script>
 ```
 
-With a bundler, pass `{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }` to `scriptureInline()` and `defineScripturePassage()`. A standalone passage can override the page default with `provider="youversion"` and `yvp-public-app-key="YOUR_PUBLIC_APP_KEY"`.
+A standalone passage can set `provider="youversion"` and `yvp-public-app-key="YOUR_PUBLIC_APP_KEY"`. With JavaScript, the equivalent options are `{ provider: "youversion", yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }`.
 
-**Migration:** Existing YouVersion integrations must add `data-provider="youversion"`, `provider="youversion"`, or `provider: "youversion"`. A public app key alone no longer selects YouVersion. The `yvp-*` settings and YouVersion load-event fields remain supported when that provider is selected. To switch to HelloAO, remove the YouVersion settings and use its translation IDs, not numeric YouVersion IDs.
+All built-in display providers add linked source credits. The fetch.bible adapter sanitizes native HTML, omits notes, loads its required stylesheet, and displays attribution separately.
 
-For another provider, implement the exported `BibleProvider` interface: `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. The display contains safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. It can also supply safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Pass the object as `provider` to either function, or assign it to a passage's `bibleProvider` property. A passage's `provider` attribute takes precedence over that property. Providers must sanitize both HTML fields; Scripture Inline inserts them into the shadow root.
+### Build a custom display provider
 
-To support the translation picker, also implement `listVersions(): Promise<BibleVersion[]>`. Assign a custom provider to the picker's `bibleProvider` property, or pass it to `defineVersionInput()`. Catalogs are scoped to the provider, including the YouVersion public app key and API host. Switching providers does not guess an equivalent translation.
+Implement the exported `BibleProvider` interface with `id`, `defaultVersionId`, and `getPassage(versionId, passageId): Promise<PassageDisplay>`. Return safe `html`, `version: { id, abbreviation, title }`, and an `attribution` string. Optional fields are safe `attributionHtml` for links, `direction`, `containerAttributes`, and `stylesheets`. Providers must sanitize both HTML fields; Scripture Inline inserts them into the shadow root.
 
-HelloAO preserves headings, poetry, and words-of-Jesus formatting when present in the translation. It displays the translation's license notice below the text, or its name linked to the license when no notice is supplied. All built-in providers add a linked source credit. Check the translation's license before using it. Passages cannot span chapters.
+Pass the object as `provider` to `defineScripturePassage()` or `scriptureInline()`, or assign it to a passage's `bibleProvider` property. A passage's `provider` attribute takes precedence.
 
-To use fetch.bible with components, create the provider shown below and pass that same object to `defineScripturePassage({ provider })`, `defineVersionInput({ provider })`, and `scriptureInline({ provider })`. Its version IDs include `eng_bsb`. For individual elements, assign `element.bibleProvider = provider` and remove any overriding `provider` attribute. This adapter is a bundler import, not a new script-tag provider name. It sanitizes native HTML, omits notes, loads the required fetch.bible stylesheet, and displays attribution separately.
+To support the translation picker, also implement `listVersions(): Promise<BibleVersion[]>`. Assign the provider to its `bibleProvider` property or pass it to `defineVersionInput()`. Catalogs are scoped to the provider, including the YouVersion public app key and API host. Switching providers does not guess an equivalent translation. For a DOM-free provider, see [Effect configuration and custom providers](#effect-configuration-and-custom-providers).
 
-## Bible data SDK
+## Data reference
 
-Use the same Effect v4 data API with HelloAO, YouVersion, or fetch.bible in a browser, Node, or Bun. The `/data` entry point does not register components, access the DOM, or inject CSS. It does not read page-wide component defaults. Methods return lazy Effects; run them at your application's boundary.
+Use uppercase [USFM book IDs](https://ubsicap.github.io/usfm/), such as `JHN` or `3JN`. `getPassage` accepts a verse (`JHN.3.16`), same-chapter inclusive range (`JHN.3.16-18`), or whole chapter (`JHN.3`).
 
-Install Effect in your application to compose and run the SDK's programs:
-
-```sh
-pnpm add @faith-tools/scripture-inline effect@^4
-```
-
-```ts
-import { Effect } from "effect";
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-
-const scripture = createScriptureClient(); // HelloAO, default version BSB
-const program = Effect.gen(function*() {
-  const versions = yield* scripture.listVersions();
-  const books = yield* scripture.listBooks({ versionId: "BSB" });
-  const chapters = yield* scripture.listChapters({ versionId: "BSB", bookId: "JHN" });
-  return yield* scripture.getPassage({
-    versionId: "BSB", passageId: "JHN.3.16-18",
-  });
-});
-const passage = await Effect.runPromise(program);
-console.log(passage.text);
-console.log(passage.attribution.text);
-console.log(passage.instructions);
-```
-
-Select an optional provider explicitly. A client uses one provider and never substitutes a translation or falls back to another source:
-
-```ts
-import { Effect } from "effect";
-import { createScriptureClient } from "@faith-tools/scripture-inline/data";
-import { createFetchBibleProvider } from "@faith-tools/scripture-inline/providers/fetch-bible";
-import { createYouVersionProvider } from "@faith-tools/scripture-inline/providers/youversion";
-import { createHelloAOProvider } from "@faith-tools/scripture-inline/providers/helloao";
-
-const provider = createFetchBibleProvider({ usage: { commercial: true } });
-const fetchScripture = createScriptureClient({ provider }); // Default eng_bsb
-const youversionScripture = createScriptureClient({
-  provider: createYouVersionProvider({ yvpPublicAppKey: "YOUR_PUBLIC_APP_KEY" }),
-}); // Default 3034
-const helloaoScripture = createScriptureClient({ provider: createHelloAOProvider() });
-const passage = await Effect.runPromise(fetchScripture.getPassage({ passageId: "JHN.3.16" }));
-console.log(passage.text, passage.attribution, passage.instructions);
-```
-
-Set `usage.commercial` to your application's actual use. fetch.bible also accepts `derivatives`, `attributionless`, and `limitless` usage filters; their defaults are `false`, `false`, and `true`. Filters exclude incompatible licenses but do not replace reviewing the translation's terms. The adapter uses the official collection. Free access is not a blanket commercial or redistribution license.
-
-YouVersion has no equivalent commercial-use flag. Its [Platform terms](https://platform.youversion.com/terms) do not grant Bible-content rights; check the selected publisher's license and applicable Tool terms for your use. The terms permit paid applications subject to conditions, including conspicuously stating that the YouVersion Bible App is free. Do not interpret this as blanket permission or a blanket commercial prohibition. The terms prohibit using Tools with AI for open-ended user chat except to retrieve and display Scripture verbatim. They prohibit using Tools to train, develop, refine, or improve AI. Cases beyond expressly permitted uses need prior written YouVersion approval. AI-assisted engineering and content generation have separate permissions and conditions in those terms. These requirements also appear in returned YouVersion instructions.
-
-IDs belong to one provider: `BSB`, `3034`, and `eng_bsb` are not interchangeable. Book IDs use uppercase USFM, such as `JHN` or `3JN`. Version, book, and chapter discovery reflect the selected source's available content. `getPassage` accepts a verse, same-chapter inclusive range, or whole chapter. An empty normalized verse can be valid; a nonexistent chapter or range endpoint fails instead of returning truncated text.
+Discovery follows the selected version's available content. Valid empty verse slots remain empty; nonexistent chapters or range endpoints fail rather than returning truncated text.
 
 ### Data and display instructions
 
@@ -321,27 +408,61 @@ The built-in instruction codes are stable identifiers for explanatory guidance, 
 | `youversion-commercial-use`, `youversion-ai-use`, `youversion-terms` | Review paid-use disclosure, AI restrictions, and account/content agreements. |
 | `fetch-bible-native-html`, `youversion-native-html` | Apply `display.nativeHtml` resources only for separately requested native HTML. |
 
-License restriction keys remain provider-specific. HelloAO reports `attribution` (`required` or `not-required`), `commercialUse` and `derivatives` (`allowed` or `not-allowed`), and boolean `copyleft` and `publicDomain`. fetch.bible reports `forbid_commercial`, `forbid_derivatives`, `forbid_attributionless`, `forbid_limitless`, and `forbid_other`: `true` prohibits that use; `false` means the filter found no such restriction, not legal permission. `forbid_derivatives: "same-license"` requires share-alike. Multiple fetch.bible licenses are alternative filtered license choices, not cumulative grants; select and follow a suitable license. Missing or unfamiliar fields require review. YouVersion supplies no unified license restriction flags.
+License restriction keys remain provider-specific. Review missing or unfamiliar fields:
 
-For a text-only browser display, assign `passage.text` to `textContent`, use `white-space: pre-wrap`, apply the supplied direction/language, and render `passage.attribution.text` after it with the supplied links. Never treat plain text or attribution as raw HTML. For native HTML in components, use the same provider object through the existing display contract; do not reconstruct HTML from flattened text. The data SDK does not invoke a renderer.
+- **HelloAO:** `attribution` is `required` or `not-required`. `commercialUse` and `derivatives` are `allowed` or `not-allowed`. `copyleft` and `publicDomain` are booleans.
+- **fetch.bible:** `forbid_commercial`, `forbid_derivatives`, `forbid_attributionless`, `forbid_limitless`, and `forbid_other` describe restrictions. `true` prohibits that use; `false` means the filter found no such restriction, not legal permission. `forbid_derivatives: "same-license"` requires share-alike. Multiple licenses are alternative filtered choices, not cumulative grants; select and follow a suitable license.
+- **YouVersion:** No unified license restriction flags are supplied.
 
-fetch.bible uses KJV-normalized numbering and the Protestant 66-book canon. `sourceLimitations` identifies documented trimming: Exodus 35:1–40:38 in `eng_bstj`, `eng_bstjb`, and `grc_lxx`; Jeremiah 25:14–52:34 in those editions plus `eng_bst`, `eng_bstb`, and `grc_bre`. Overlap does not establish why a particular verse is empty. Psalm requests including verse 1 supplement TXT with native HTML's scriptural descriptive title, without including editorial headings. Native fetch.bible HTML needs its container class and functional CSS so notes do not become Scripture. YouVersion instructions identify its HTML container/CSS requirements and prohibit downloading or self-hosting its font files. Neither integration establishes universal offline or persistent caching rights.
+To render plain text in a browser:
+
+1. Assign `passage.text` to `textContent`. Never insert plain text or attribution as raw HTML.
+2. Apply `white-space: pre-wrap` and the supplied direction and language.
+3. Show `passage.attribution.text` and its links below the passage.
+
+For native HTML, use the same provider object through the component display contract. Do not reconstruct HTML from flattened text. Native fetch.bible HTML requires its container and functional CSS so notes do not become Scripture. YouVersion HTML requires its returned container and stylesheets; do not download or self-host its font files. The data SDK does not invoke a renderer.
+
+fetch.bible uses KJV-normalized numbering and the Protestant 66-book canon. Its `sourceLimitations` identifies these documented trimmed ranges:
+
+- Exodus 35:1–40:38: `eng_bstj`, `eng_bstjb`, and `grc_lxx`.
+- Jeremiah 25:14–52:34: those editions plus `eng_bst`, `eng_bstb`, and `grc_bre`.
+
+An overlapping range does not establish why a particular verse is empty. Psalm requests including verse 1 supplement TXT with native HTML's scriptural descriptive title, without editorial headings. No universal offline or persistent caching rights are established.
 
 ### Errors, caching, and custom providers
 
-`ScriptureError` is a Schema-tagged error in the Effect failure channel. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error remains in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. Use `Effect.catchTag("ScriptureError", ...)` to handle expected failures without hiding defects.
+Async methods reject with the original `ScriptureError` for expected failures. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error remains in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. Programming defects are not converted to expected errors.
+
+```ts
+import { createScriptureClient, ScriptureError } from "@faith-tools/scripture-inline/data";
+
+const scripture = createScriptureClient();
+try {
+  const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
+  console.log(passage.text);
+} catch (error) {
+  if (!(error instanceof ScriptureError)) throw error;
+  console.error(error.code, error.message);
+}
+```
 
 Built-in source requests retry network and rate-limit failures twice, with exponential delays starting at 100ms. A 15-second deadline bounds each request's entire retry sequence. Authentication, unavailable content, invalid references, and invalid responses do not retry. Override `RequestPolicy` with `Effect.provideService` for a program. Legacy Promise-only custom providers have a deadline but no automatic retries.
 
-Each client's discovery cache and each built-in adapter's payload cache have at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again. HelloAO shares validated chapter payloads, and fetch.bible shares whole books. fetch.bible also retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection. Running `client.clearCache()` or providing its Layer to `scripture.clearCache` clears that client's discovery and its provider's payload caches; shared providers share those caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches. Passage data and YouVersion attribution are not memoized by the client. No persistent cache is provided.
+Each client's discovery cache and each built-in adapter's payload cache have at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.
 
-Effects support fiber interruption and `Effect.runPromise(program, { signal })`. HelloAO receives the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
+- HelloAO shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.
+- Run `client.clearCache()`, or provide its Layer to `scripture.clearCache`, to clear that client's discovery and its provider's payload caches. Shared providers share those caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches.
+- The client does not memoize passage data or YouVersion attribution. Persistent caching is not provided.
+
+### Effect configuration and custom providers
+
+Effects support fiber interruption and `Effect.runPromise(program, { signal })`. The simple async API does not expose an interruption option. HelloAO receives the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
 
 Named spans connect client operations, provider operations, and upstream requests to your application's Effect tracer. The SDK does not choose a telemetry backend or export content, credentials, or errors to a hosted service. Configure an Effect tracer or OTLP layer in your application.
 
 ```ts
 import { Effect } from "effect";
-import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data";
+import { RequestPolicy, createScriptureClient, scripture } from "@faith-tools/scripture-inline/data/effect";
 
 const client = createScriptureClient();
 const program = scripture.getPassage({ passageId: "JHN.3.16" }).pipe(
@@ -356,7 +477,8 @@ Custom data providers implement the exported `BibleDataProvider` interface with 
 
 | Call | Result |
 | --- | --- |
-| `client.getPassage({ versionId, passageId })` | Effect returning `ScripturePassage` data. |
+| `/data` client's `getPassage({ versionId, passageId })` | Promise returning `ScripturePassage` data. |
+| `/data/effect` client's `getPassage({ versionId, passageId })` | Lazy Effect returning the same `ScripturePassage` data. |
 | `provider.effects.getPassageData(versionId, passageId)` | Built-in provider's native Effect data operation. |
 | `provider.getPassage(versionId, passageId)` | Compatibility Promise returning HTML `PassageDisplay` for components. |
 

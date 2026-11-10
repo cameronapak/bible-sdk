@@ -1,6 +1,37 @@
 @import "@faith-tools/sensible-ui";
 @import "@faith-tools/sensible-ui/code/css";
 
+.docs-layout {
+  --container-width: 80rem;
+  --sidebar-width: 14rem;
+  gap: 2.5rem;
+  padding-block: 3rem 4rem;
+}
+.docs-layout > .docs-sidebar { flex: 0 0 var(--sidebar-width); }
+.docs-sidebar { position: sticky; top: 2rem; max-height: calc(100dvh - 4rem); overflow-y: auto; }
+.docs-layout > .docs-content { min-width: 0; max-width: 52rem; }
+.docs-content { gap: 4rem; }
+.docs-content [id] { scroll-margin-top: 2rem; }
+.docs-content details > summary { line-height: 1.4 !important; gap: 1rem; }
+/* Keep reference content inside its border while the disclosure height animates. */
+.docs-content details::details-content { overflow: clip; }
+/* Fragment navigation needs the final height before positioning a nested target. */
+.docs-content details:is(:target, :has(:target))::details-content { transition: none; }
+/* Closed reference sections must also remove their links and examples from keyboard navigation. */
+details:not([open])::details-content { visibility: hidden; }
+#contents { border: 0; background: none; translate: none; }
+#contents::details-content { transition: none; }
+#contents > summary { display: none; }
+#contents > sensible-sidebar { padding: 0.5rem !important; }
+.skip-link { position: fixed; top: 0.5rem; left: 0.5rem; z-index: 100; padding: 0.75rem; background: var(--background); transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
+@media (width < 64rem) {
+  .docs-layout { display: block; padding-block: 1rem 3rem; }
+  .docs-sidebar { position: static; max-height: none; overflow: visible; margin-bottom: 2rem; }
+  #contents { border: 1px solid var(--border); border-radius: var(--radius); }
+  #contents > summary { display: grid; }
+}
+
 /* Sensible UI spaces a label above a following input or select; give the passage input the same. */
 label:has(+ si-passage-input, + si-version-input) {
   padding-bottom: 0.5rem;
@@ -29,25 +60,23 @@ table td:not(:first-child) {
   white-space: normal;
 }
 /* SDK tables contain grouped codes and method signatures, not single attribute names. */
-#data-sdk table {
+#data-reference table,
+#providers table {
   table-layout: fixed;
   width: 100%;
 }
-#data-sdk th,
-#data-sdk td:first-child,
-#data-sdk td code {
+#data-reference th,
+#data-reference td:first-child,
+#data-reference td code,
+#providers th,
+#providers td {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+#providers td:last-child { min-width: 0; }
 /* A description narrower than this is hard to read; the table scrolls instead. */
 table td:last-child {
   min-width: 14rem;
-}
-
-/* Room between sections. Set gap directly: --layout-gap would inherit into every nested stack. */
-body > main.stack {
-  gap: 4rem;
-  padding-block: 3rem 4rem;
 }
 
 /* Set by the page's head script until its code blocks render, so they never shift the layout. */
