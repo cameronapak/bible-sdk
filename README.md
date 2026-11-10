@@ -76,7 +76,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
 ></script>
 ```
 
@@ -354,7 +354,7 @@ Script tags support HelloAO by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.4.0/dist/scripture-inline.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/scripture-inline@0.5.0/dist/scripture-inline.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
