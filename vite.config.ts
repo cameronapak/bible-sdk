@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => ({
                 "providers/helloao": "src/providers/helloao.ts",
                 "providers/youversion": "src/providers/youversion.ts",
                 "providers/fetch-bible": "src/providers/fetch-bible.ts",
+                "providers/api-bible": "src/providers/api-bible.ts",
               },
               formats: ["es"], fileName: (_format, name) => `${name}.js`,
             },

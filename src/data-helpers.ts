@@ -49,11 +49,11 @@ export function textInstructions(): DisplayInstruction[] {
 }
 
 /** Bounded Effect cache. Failed exits expire immediately and lookups inherit caller services. */
-export function requestCache() {
+export function requestCache(timeToLive: Duration.Input = Duration.infinity) {
   const lookups = new Map<string, () => Effect.Effect<unknown, ScriptureError>>();
   const cache = Effect.runSync(Cache.makeWith(
     (key: string) => Effect.suspend(() => lookups.get(key)!()),
-    { capacity: 256, requireServicesAt: "lookup", timeToLive: (exit) => Exit.isSuccess(exit) ? Duration.infinity : Duration.zero },
+    { capacity: 256, requireServicesAt: "lookup", timeToLive: (exit) => Exit.isSuccess(exit) ? timeToLive : Duration.zero },
   ));
   return {
     get<T>(key: string, load: () => Effect.Effect<T, ScriptureError>): Effect.Effect<T, ScriptureError> {

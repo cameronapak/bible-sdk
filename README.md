@@ -9,7 +9,7 @@ Choose the surface your application needs:
 - **[Bible data SDK](#bible-data-sdk):** Discover versions, books, and chapters, and retrieve Scripture with attribution and display guidance. Use async/await or native Effect v4 without a DOM.
 - **[Browser components](#getting-started):** Display passages, choose passages and translations, or turn Bible references into Scripture cards. No framework is required.
 
-Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
+Bible text comes from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/) by default, with no API key. The [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) are optional providers. Bible SDK is an independent community project, not affiliated with YouVersion or Life.Church.
 
 > Bible SDK is in preview. Expect changes before 1.0.
 
@@ -23,7 +23,7 @@ Attributes (including `data-scripture-inline-ignore`), `scriptureInline()` and o
 
 ## Bible data SDK
 
-The data SDK works in a browser, Node, or Bun without components, DOM access, CSS injection, or page-wide component defaults. Import `/data` for async/await, or [`/data/effect`](#native-effect-api) for native Effect programs. Both use the same Effect v4 implementation, validation, errors, and caching.
+The data SDK works in a browser, Node, or Bun without components, DOM access, CSS injection, or page-wide component defaults. API.Bible is server-only because its API key is private. Import `/data` for async/await, or [`/data/effect`](#native-effect-api) for native Effect programs. Both use the same Effect v4 implementation, validation, errors, and caching.
 
 Install the package. You do not need to import or directly install Effect for async/await. Effect remains a transitive runtime dependency and contributes to bundle size.
 
@@ -46,7 +46,7 @@ console.log(passage.attribution.text);
 console.log(passage.instructions);
 ```
 
-The example returns John 3:16–18 as `passage.text`, with separate attribution and instructions. HelloAO is the default. To use fetch.bible or YouVersion, [choose a provider](#choose-a-bible-provider). See the [data reference](#data-reference) for supported passage IDs and result fields.
+The example returns John 3:16–18 as `passage.text`, with separate attribution and instructions. HelloAO is the default. To use another source, [choose a provider](#choose-a-bible-provider). See the [data reference](#data-reference) for supported passage IDs and result fields.
 
 ### Native Effect API
 
@@ -277,13 +277,14 @@ const english = versions.filter((version) => version.language === "en");
 
 ## Choose a Bible provider
 
-Use HelloAO by default, or select fetch.bible or YouVersion. All three support the same data API. Each client uses one provider; it never substitutes a translation or falls back to another source.
+Use HelloAO by default, or select fetch.bible, YouVersion, or API.Bible. All four support the same data API; API.Bible runs only on your server. Each client uses one provider; it never substitutes a translation or falls back to another source.
 
 | Provider | Setup | Default version ID |
 | --- | --- | --- |
 | [HelloAO](https://bible.helloao.org/docs/) | No API key. Default provider. | `BSB` |
 | [fetch.bible](https://fetch.bible/) | No API key. Declare your usage. | `eng_bsb` |
 | [YouVersion](https://platform.youversion.com/) | Requires a public app key. | `3034` |
+| [API.Bible](https://api.bible/) | Your own private key and official SDK client, server-only. | Explicitly choose an accessible edition. |
 
 Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.
 
@@ -315,6 +316,48 @@ console.log(passage.text, passage.attribution);
 ```
 
 Set `usage.commercial` to your application's actual use. The example declares noncommercial use. The `derivatives`, `attributionless`, and `limitless` filters default to `false`, `false`, and `true`. Filters are not legal permission; review each translation's terms. The adapter uses the official collection.
+
+### API.Bible: your own server-side client
+
+Install the [official SDK](https://api.bible/sdk) alongside Bible SDK on a Node 20+ or Bun server. This adapter uses the `node` export condition; other server runtimes need Node-compatible package resolution:
+
+```sh
+pnpm add @faith-tools/bible-sdk @americanbible/api-bible-sdk
+```
+
+Each application supplies its own registered API.Bible account/key and applicable licenses. Bible SDK supplies adapter code, not access through a shared account. Keep the key in a server secret, never a browser bundle, `VITE_*` variable, element attribute, URL, or log. The adapter export rejects browser resolution and construction; that is not a replacement for keeping secrets out of client code.
+
+```ts
+// Server code only. The same provider works with /data/effect.
+import { createBibleClient } from "@americanbible/api-bible-sdk";
+import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createApiBibleProvider } from "@faith-tools/bible-sdk/providers/api-bible";
+
+const apiKey = process.env.API_DOT_BIBLE_API_KEY;
+if (!apiKey) throw new Error("Set the server's API.Bible key.");
+
+const scripture = createScriptureClient({
+  provider: createApiBibleProvider({
+    client: createBibleClient({ apiKey, retry: { maxAttempts: 1 } }),
+    defaultVersionId: "bba9f40183526463-01", // BSB; verify access for your app.
+  }),
+});
+const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
+// Your application renders text/attribution, preserves publisher metadata,
+// and reports passage.reporting.token on each actual web display.
+```
+
+Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SDK hooks/custom transports that log credentials or response bodies. Choose `defaultVersionId` from your account's `listVersions()` results, not a HelloAO or YouVersion ID. No edition is chosen automatically. Chapters exclude intro entries. Plain text preserves scriptural superscriptions and poetry, omits editorial headings and notes, and does not claim KJV numbering. Incomplete endpoint coverage fails rather than silently claiming the whole requested range; the upstream passage endpoint can limit results to 200 verses.
+
+**Application obligations:** review the [Terms](https://api.bible/terms-and-conditions), [AUP and account agreements](https://care.api.bible/article/392-how-to-create-a-new-app), and each translation's metadata. Returned instructions are guidance, not certification of compliance.
+
+- **Display reporting:** preserve `reporting.token` and report every actual web view to [FUMS](https://care.api.bible/article/417-understanding-fums), including cached displays. Do not report fetches/prefetches as views. The host owns device/session IDs and privacy requirements; the adapter sends no analytics automatically.
+- **Attribution:** render `attribution.text` and links below Scripture, identify the translation, and provide the required linked copyright/about page. Preserve `publisher.copyrightHtml` and `publisher.infoHtml`; these are untrusted upstream HTML, so sanitize before rendering. Keep the visible API.Bible source link.
+- **Caching and removal:** discovery/publisher caches refresh after 14 days. Refresh your own copies by `cache.expiresAt` (epoch milliseconds), never retain metadata/content over 30 days without refresh, and honor shorter removal/revocation deadlines. Some requests require removal within 24 hours; termination provisions can require immediate deletion. A TTL is not offline permission.
+- **Plan and content restrictions:** Starter is noncommercial even for public-domain editions. Each app owner must accept the required account agreements, including the Statement of Orthodoxy, and check licenses, content-integrity requirements, territorial/export restrictions, and economic sanctions. Violations can lead to suspension/revocation, removal duties, audits, fees, and indemnification.
+- **DRM and AI:** the published terms require application-level DRM restricting copying/distribution, printing over 100 verses, territory and device counts; they do not specify a universally compliant implementation. Keeping the key private does not satisfy that whole obligation. [Express Licensing guidance](https://care.api.bible/article/405-express-licensing-faqs) restricts copyrighted and Creative Commons Scripture in LLM prompts as well as training. Public-domain runtime prompts are permitted; confirm training, TTS, and exports separately.
+
+This is a data-only adapter, not a browser-component or script-tag provider. Your application owns the backend and display/reporting integration. Do not pass this provider directly to `defineScripturePassage()` or add an API.Bible key attribute to markup.
 
 ### YouVersion: add a public app key
 
@@ -394,10 +437,13 @@ Running `getPassage()` produces a Schema-validated, serializable `ScripturePassa
 | Field | Meaning |
 | --- | --- |
 | `text` | Plain Scripture, without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain. This is not a rich-text or lossless source model. |
-| `provider`, `source` | Provider ID, source version ID, and source URL: the HelloAO chapter endpoint, fetch.bible TXT book endpoint, or YouVersion HTTPS API base. Not a complete request log. |
+| `provider`, `source` | Provider ID, source version ID, and source URL: the HelloAO chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log. |
 | `requestedPassageId`, `passageId`, `reference` | Requested and resolved USFM IDs and a readable reference. |
 | `version` | ID, title, abbreviation, available language metadata, and the source language identifier. |
 | `attribution`, `licenses` | Attribution text, source/license URLs, and available license restrictions. Empty license metadata does not grant permission. |
+| `publisher` | When supplied, `copyrightHtml` and `infoHtml` preserve untrusted publisher notices for your linked copyright/about page. Sanitize before rendering. |
+| `reporting` | When supplied, `{ kind: "api-bible-fums", token }` identifies usage-reporting data. The host reports actual web displays, including cache hits. Fetching does not report views. |
+| `cache` | When supplied, `expiresAt` is an epoch-millisecond downstream refresh deadline. It can reflect publisher metadata fetched earlier than the passage. Removal requests can override it. |
 | `numbering` | `kjv` for the official fetch.bible collection; `unknown` when not established. |
 | `sourceLimitations` | When supplied, documented trimming for the selected edition: `kind: "source-trimming"`, inclusive `startPassageId` and `endPassageId`, and `appliesToRequest`. Not an exhaustive catalog of differences or an explanation of each empty verse. |
 | `display` | Text-rendering metadata: `format: "text"`, `whitespace: "pre-wrap"`, `attributionPlacement: "after-passage"`, and direction/language when known. Optional `nativeHtml` lists container attributes and stylesheets for separately requested native HTML. |
@@ -414,6 +460,7 @@ The built-in instruction codes are stable identifiers for explanatory guidance, 
 | `plain-text-limits` | Account for the representation's omitted rich formatting. |
 | `fetch-bible-normalization`, `fetch-bible-license` | Check numbering, `sourceLimitations`, and the selected translation's terms. |
 | `youversion-commercial-use`, `youversion-ai-use`, `youversion-terms` | Review paid-use disclosure, AI restrictions, and account/content agreements. |
+| `api-bible-fums`, `api-bible-publisher`, `api-bible-cache`, `api-bible-usage`, `api-bible-ai` | Implement actual-view reporting, safe publisher notices, downstream refresh/removal, account/plan/license/DRM controls, and AI restrictions. |
 | `fetch-bible-native-html`, `youversion-native-html` | Apply `display.nativeHtml` resources only for separately requested native HTML. |
 
 License restriction keys remain provider-specific. Review missing or unfamiliar fields:
@@ -421,6 +468,7 @@ License restriction keys remain provider-specific. Review missing or unfamiliar 
 - **HelloAO:** `attribution` is `required` or `not-required`. `commercialUse` and `derivatives` are `allowed` or `not-allowed`. `copyleft` and `publicDomain` are booleans.
 - **fetch.bible:** `forbid_commercial`, `forbid_derivatives`, `forbid_attributionless`, `forbid_limitless`, and `forbid_other` describe restrictions. `true` prohibits that use; `false` means the filter found no such restriction, not legal permission. `forbid_derivatives: "same-license"` requires share-alike. Multiple licenses are alternative filtered choices, not cumulative grants; select and follow a suitable license.
 - **YouVersion:** No unified license restriction flags are supplied.
+- **API.Bible:** No unified license restriction flags are supplied. Review the returned publisher notices and API.Bible account/content terms.
 
 To render plain text in a browser:
 
@@ -439,7 +487,7 @@ An overlapping range does not establish why a particular verse is empty. Psalm r
 
 ### Errors, caching, and custom providers
 
-Async methods reject with the original `ScriptureError` for expected failures. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error remains in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. Programming defects are not converted to expected errors.
+Async methods reject with the original `ScriptureError` for expected failures. Its `code` distinguishes `invalid_reference`, `unavailable`, `unsupported`, `authentication`, `rate_limit`, `network`, `timeout`, and `invalid_response`. Upstream HTTP errors are classified when their status is available; other source failures use `network`. The original error can remain in `cause`, which can contain sensitive provider diagnostics, so do not expose it to readers. API.Bible discards upstream diagnostics and response-validation causes. Programming defects are not converted to expected errors.
 
 ```ts
 import { createScriptureClient, ScriptureError } from "@faith-tools/bible-sdk/data";
@@ -459,12 +507,13 @@ Built-in source requests retry network and rate-limit failures twice, with expon
 Each client's discovery cache and each built-in adapter's payload cache have at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.
 
 - HelloAO shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.
+- API.Bible discovery and publisher metadata expire after 14 days; passage payloads are not memoized. Other built-in cache entries retain their existing lifetime until clearing/eviction. Custom data providers can set `cacheTimeToLive` to an Effect `Duration.Input` for client discovery caches. API.Bible downstream caches must honor `cache.expiresAt` and any earlier removal request.
 - Run `client.clearCache()`, or provide its Layer to `scripture.clearCache`, to clear that client's discovery and its provider's payload caches. Shared providers share those caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches.
 - The client does not memoize passage data or YouVersion attribution. Persistent caching is not provided.
 
 ### Effect configuration and custom providers
 
-Effects support fiber interruption and `Effect.runPromise(program, { signal })`. The simple async API does not expose an interruption option. HelloAO receives the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
+Effects support fiber interruption and `Effect.runPromise(program, { signal })`. The simple async API does not expose an interruption option. HelloAO and API.Bible receive the transport's abort signal. YouVersion and fetch.bible SDKs do not expose transport cancellation; interruption stops waiting and ignores their late results, but does not claim to stop their underlying downloads. Components interrupt obsolete loads and use scoped listener/timer cleanup.
 
 Named spans connect client operations, provider operations, and upstream requests to your application's Effect tracer. The SDK does not choose a telemetry backend or export content, credentials, or errors to a hosted service. Configure an Effect tracer or OTLP layer in your application.
 
@@ -527,7 +576,7 @@ Releases use [Changesets](https://github.com/changesets/changesets). Run `pnpm c
 ## Credits
 
 - From [Cameron Pak](https://cameronpak.com), part of [Faith Tools Software Solutions, LLC](https://faith.tools).
-- Default Bible text from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/), with optional [YouVersion Platform](https://developers.youversion.com/) and [fetch.bible](https://fetch.bible/) support.
+- Default Bible text from [HelloAO's Free Use Bible API](https://bible.helloao.org/docs/), with optional [YouVersion Platform](https://developers.youversion.com/), [fetch.bible](https://fetch.bible/), and server-only [API.Bible](https://api.bible/) support.
 - References parsed by [grab-bcv](https://github.com/dpshde/grab-bcv), and links open [route.bible](https://route.bible), both by [Dylan Shade](https://github.com/dpshde).
 - Docs styled with [Sensible UI](https://sensibleui.com).
 

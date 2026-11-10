@@ -43,6 +43,11 @@
       "types": "./dist/types/providers/fetch-bible.d.ts",
       "default": "./dist/providers/fetch-bible.js"
     },
+    "./providers/api-bible": {
+      "types": "./dist/types/providers/api-bible.d.ts",
+      "browser": null,
+      "node": "./dist/providers/api-bible.js"
+    },
     "./embed": "./dist/bible-sdk.js"
   },
   "types": "./dist/types/index.d.ts",
@@ -70,6 +75,7 @@
     "sanitize-html": "^2.18.1"
   },
   "devDependencies": {
+    "@americanbible/api-bible-sdk": "2.0.2",
     "@changesets/cli": "3.0.3",
     "@effect/vitest": "4.1.2",
     "@faith-tools/sensible-ui": "1.8.2",
