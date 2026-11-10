@@ -35,6 +35,10 @@
       "types": "./dist/types/providers/helloao.d.ts",
       "default": "./dist/providers/helloao.js"
     },
+    "./providers/ao-lab": {
+      "types": "./dist/types/providers/ao-lab.d.ts",
+      "default": "./dist/providers/ao-lab.js"
+    },
     "./providers/youversion": {
       "types": "./dist/types/providers/youversion.d.ts",
       "default": "./dist/providers/youversion.js"

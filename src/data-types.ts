@@ -68,6 +68,36 @@ export const ScripturePassage = Schema.Struct({
 });
 export type ScripturePassage = typeof ScripturePassage.Type;
 
+/** A calendar date, not a UTC timestamp. */
+export const CalendarDate = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/),
+  Schema.makeFilter((value) => {
+    const time = Date.parse(`${value}T00:00:00Z`);
+    return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+  }),
+);
+
+export const DailyVerseReference = Schema.Struct({
+  passageId: Schema.NonEmptyString,
+  sourceUrl: Schema.NonEmptyString,
+});
+export type DailyVerseReference = typeof DailyVerseReference.Type;
+
+export const VerseOfTheDay = Schema.Struct({
+  date: CalendarDate,
+  calendarSource: Schema.Struct({ provider: Schema.NonEmptyString, sourceUrl: Schema.NonEmptyString }),
+  passage: ScripturePassage,
+});
+export type VerseOfTheDay = typeof VerseOfTheDay.Type;
+
+export type VerseOfTheDayOptions = {
+  versionId?: string;
+  /** YYYY-MM-DD. Defaults to the runtime's local calendar date when executed. */
+  date?: string;
+  /** Explicitly use AO Lab's reference calendar with "ao-lab". The "helloao" input is a deprecated alias. */
+  calendarSource?: "provider" | "ao-lab" | "helloao";
+};
+
 /** Data capabilities are separate from the existing custom display-provider contract. */
 export interface BibleDataProvider {
   readonly id: string;
@@ -78,6 +108,8 @@ export interface BibleDataProvider {
   listBooks(versionId: string): Effect.Effect<BibleBook[], ScriptureError>;
   listChapters(versionId: string, bookId: string): Effect.Effect<BibleChapter[], ScriptureError>;
   getPassageData(versionId: string, passageId: string): Effect.Effect<ScripturePassage, ScriptureError>;
+  /** Optional native reference calendar. Text is always resolved through getPassageData. */
+  getVerseOfTheDay?(date: string): Effect.Effect<DailyVerseReference, ScriptureError>;
   readonly clearCache: Effect.Effect<void>;
 }
 
