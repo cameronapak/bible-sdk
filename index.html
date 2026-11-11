@@ -178,10 +178,19 @@ console.log(daily.passage.attribution.text);</textarea>
             </tbody>
           </table>
         </div>
+        <div class="card" role="note" aria-labelledby="api-bible-server-title">
+          <header>
+            <h3 id="api-bible-server-title">API.Bible requires server-side setup</h3>
+          </header>
+          <section class="stack">
+            <p>Keep your API.Bible key on your server. For browser components, use your app's backend or a compatible serverless function to fetch passages. You do not need a separate proxy service.</p>
+            <p>If your site only serves static files, <a href="#api-bible">add a server endpoint</a> or choose <a href="#ao-lab">AO Lab</a> for a browser-only setup without an API key.</p>
+          </section>
+        </div>
         <p>Version IDs belong to one provider: <code>BSB</code>, <code>eng_bsb</code>, and <code>3034</code> are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.</p>
         <p><strong>YouVersion has additional paid-app and AI-use conditions.</strong> Review the <a href="#youversion-requirements">YouVersion requirements</a> before using that adapter.</p>
         <div>
-        <details>
+        <details id="ao-lab">
           <summary>AO Lab: use the default</summary>
           <div class="stack">
             <sensible-code language="js" data-wrap="true">
@@ -214,6 +223,7 @@ console.log(passage.text, passage.attribution);</textarea>
         <details id="api-bible">
           <summary>API.Bible: your own server-side client</summary>
           <div class="stack">
+            <p><strong>Browser components use your server.</strong> Create an endpoint on your backend or a compatible serverless function. The component requests passages from that endpoint; only your server sends the private key to API.Bible. See the <a href="#api-bible-components">passage component example</a>.</p>
             <p>Install the <a href="https://api.bible/sdk">official SDK</a> alongside Bible SDK on a Node 20+ or Bun server. This adapter uses the <code>node</code> export condition; other server runtimes need Node-compatible package resolution:</p>
             <sensible-code language="sh" data-wrap="true">
               <textarea readonly>pnpm add @faith-tools/bible-sdk @americanbible/api-bible-sdk</textarea>
@@ -238,7 +248,7 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
 // Your application renders text/attribution, preserves publisher metadata,
 // and reports passage.reporting.token on each actual web display.</textarea>
             </sensible-code>
-            <p>Set upstream <code>maxAttempts: 1</code> so Effect owns retries and deadlines. Avoid SDK hooks/custom transports that log credentials or response bodies. Choose <code>defaultVersionId</code> from your account's <code>listVersions()</code> results. No edition is chosen automatically. Chapters exclude intro entries; text preserves scriptural superscriptions and poetry without editorial headings or notes. Numbering remains unknown. Incomplete endpoint coverage fails rather than silently claiming the whole range; upstream passages can be limited to 200 verses.</p>
+            <p>Set upstream <code>maxAttempts: 1</code> so Effect owns retries and deadlines. Avoid SDK hooks/custom transports that log credentials or response bodies. Choose <code>defaultVersionId</code> from your account's <code>listVersions()</code> results. No edition is chosen automatically. Chapters exclude intro entries; plain text preserves scriptural superscriptions and poetry line breaks, not style-derived indentation, alignment, italics, or small caps. It omits editorial headings and notes. Numbering remains unknown. Incomplete endpoint coverage fails rather than silently claiming the whole range; upstream passages can be limited to 200 verses.</p>
             <p><strong>Application obligations:</strong> review the <a href="https://api.bible/terms-and-conditions">Terms</a>, <a href="https://care.api.bible/article/392-how-to-create-a-new-app">AUP and account agreements</a>, and each translation's metadata. Returned instructions are guidance, not certification of compliance.</p>
             <ul>
               <li><strong>Display reporting:</strong> report <code>reporting.token</code> for each actual web view to <a href="https://care.api.bible/article/417-understanding-fums">FUMS</a>, including cache hits, not fetches/prefetches. The host owns device/session IDs and privacy requirements. No analytics are sent automatically.</li>
@@ -247,7 +257,56 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
               <li><strong>Plan and content restrictions:</strong> Starter is noncommercial even for public-domain editions. Each app owner accepts the required account agreements, including the Statement of Orthodoxy, and checks licenses, content integrity, territorial/export restrictions, and economic sanctions. Violations can lead to suspension/revocation, removal duties, audits, fees, and indemnification.</li>
               <li><strong>DRM and AI:</strong> the terms require application-level DRM restricting copying/distribution, printing over 100 verses, territory and device counts, without specifying a universally compliant implementation. A private key alone does not satisfy that obligation. <a href="https://care.api.bible/article/405-express-licensing-faqs">Express Licensing guidance</a> restricts copyrighted and Creative Commons Scripture in LLM prompts as well as training. Public-domain runtime prompts are permitted; confirm training, TTS, and exports separately.</li>
             </ul>
-            <p>This is a data-only adapter, not a browser-component or script-tag provider. Your application owns the backend and display/reporting integration. Do not pass it directly to <code>defineScripturePassage()</code> or add an API.Bible key attribute to markup.</p>
+            <h3 id="api-bible-components">API.Bible in the passage component</h3>
+            <p>The same server provider implements <code>getPassageDisplay(versionId, passageId)</code>. It requests native HTML once, validates coverage, sanitizes unsafe markup, and preserves USX classes for poetry, scriptural titles, small caps, italics, and tables. The component loads a reviewed, commit-pinned copy of the <a href="https://docs.api.bible/resources/scripture-styling/">official Scripture Styles</a> inside its shadow root. This CSS is optional under API.Bible's guidance, not a required design. Customize it with <code>--scripture-*</code>; theme, verse-number, heading, and direction controls still work. Omit <code>red-letter</code> to keep the official muted <code>.wj</code> styling, use <code>red-letter="on"</code> to color marked words of Jesus red, or use <code>red-letter="off"</code> for the text color. These controls require the translation to supply words-of-Jesus markers. Hiding editorial headings leaves scriptural Psalm titles visible.</p>
+            <p>Keep the provider on your server and expose safe displays through your own endpoint. Pass a browser provider to <code>defineScripturePassage</code>, not the server provider. There is no private-key attribute or built-in <code>provider="api-bible"</code> string option.</p>
+            <sensible-code language="ts" data-wrap="true">
+              <textarea readonly>// Server route: GET /api/scripture. Use your server's routing convention.
+import { Effect } from "effect";
+import { createBibleClient } from "@americanbible/api-bible-sdk";
+import { createApiBibleProvider } from "@faith-tools/bible-sdk/providers/api-bible";
+
+const provider = createApiBibleProvider({
+  client: createBibleClient({ apiKey: process.env.API_DOT_BIBLE_API_KEY!, retry: { maxAttempts: 1 } }),
+  defaultVersionId: "bba9f40183526463-01",
+  copyrightUrl: "/copyright/bible", // Build this page before serving Scripture.
+});
+const allowedVersions = new Set([provider.defaultVersionId]); // Your licensed editions.
+
+export async function GET(request: Request) {
+  const query = new URL(request.url).searchParams;
+  const versionId = query.get("version") ?? provider.defaultVersionId;
+  if (!allowedVersions.has(versionId)) return new Response("Edition unavailable", { status: 400 });
+  try {
+    const value = query.has("versions")
+      ? (await Effect.runPromise(provider.listVersions())).filter(({ id }) => allowedVersions.has(id))
+      : await Effect.runPromise(provider.getPassageDisplay(versionId, query.get("passage") ?? ""), { signal: request.signal });
+    return Response.json(value, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return new Response("Scripture unavailable", { status: 502 });
+  }
+}</textarea>
+            </sensible-code>
+            <sensible-code language="ts" data-wrap="true">
+              <textarea readonly>// Browser code. Requests go to your server, never to API.Bible with a private key.
+import { defineScripturePassage, type BibleProvider } from "@faith-tools/bible-sdk";
+
+async function read(query: URLSearchParams) {
+  const response = await fetch(`/api/scripture?${query}`);
+  if (!response.ok) throw new Error("Scripture unavailable");
+  return response.json();
+}
+const provider: BibleProvider = {
+  id: "api-bible", defaultVersionId: "bba9f40183526463-01",
+  getPassage: (version, passage) => read(new URLSearchParams({ version, passage })),
+  listVersions: () => read(new URLSearchParams({ versions: "1" })),
+};
+defineScripturePassage({ provider });
+// &lt;bible-sk-passage passage-id="PSA.3.1-2"&gt;&lt;/bible-sk-passage&gt;</textarea>
+            </sensible-code>
+            <p>Add your app's authentication, rate limits, edition/access controls, and privacy-aware FUMS integration. This example does not create a public shared-key proxy. The translation picker can use the same browser provider through <code>defineVersionInput({ provider })</code>.</p>
+            <p><code>copyrightUrl</code> is required for display, not plain-text data access. Every quotation page gets a visible link. Populate that page with sanitized <code>publisher.copyrightHtml</code> and <code>publisher.infoHtml</code>, the full translation name/abbreviation, the exact current dashboard/Appendix A citation, and a clickable rights-holder link. Raw metadata alone does not guarantee a complete notice. Applicable direct publisher formatting/citation agreements take precedence; resolve conflicts with API.Bible's remaining minimum requirements before use.</p>
+            <p><code>scripture-load.detail.reporting</code> carries the FUMS token after rendering; <code>detail.cache.expiresAt</code> carries the absolute refresh deadline. Connect this to your actual-view reporter, including later cached displays. Rendered does not mean visible: hidden/offscreen components and prerenders need host visibility handling. Layout/theme changes do not fire another load event. No analytics are sent automatically. Cached displays refresh on the next load at the deadline; the host must refresh/remove long-lived mounted displays and honor earlier revocations. Expired server data causes an error instead of stale Scripture.</p>
           </div>
         </details>
         <details>
@@ -292,7 +351,7 @@ scriptureInline({ provider });</textarea>
             <p>Script tags support AO Lab by default and YouVersion through explicit settings:</p>
             <sensible-code language="html" data-wrap="true">
               <textarea readonly><script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.8.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.9.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -355,6 +414,7 @@ scriptureInline({ provider });</textarea>
               <tr><td><code>fetch-bible-normalization</code>, <code>fetch-bible-license</code></td><td>Check numbering, source limitations, and translation terms.</td></tr>
               <tr><td><code>youversion-commercial-use</code>, <code>youversion-ai-use</code>, <code>youversion-terms</code></td><td>Review paid-use disclosure, AI restrictions, and account/content agreements.</td></tr>
               <tr><td><code>api-bible-fums</code>, <code>api-bible-publisher</code>, <code>api-bible-cache</code>, <code>api-bible-usage</code>, <code>api-bible-ai</code></td><td>Implement actual-view reporting, safe publisher notices, downstream refresh/removal, account/plan/license/DRM controls, and AI restrictions.</td></tr>
+              <tr><td><code>api-bible-html</code></td><td>Native server-side displays preserve USX formatting and use the optional official stylesheet; plain text cannot reproduce it. Publisher formatting/citation agreements still apply.</td></tr>
               <tr><td><code>fetch-bible-native-html</code>, <code>youversion-native-html</code></td><td>Apply nativeHtml resources for separately requested HTML.</td></tr>
             </tbody>
           </table>
@@ -439,7 +499,7 @@ const passage = await Effect.runPromise(program);</textarea>
           To use another source, <a href="#providers">choose a provider</a>.
         </p>
         <sensible-code language="html" data-wrap="true">
-          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.8.0/dist/bible-sdk.js">&lt;/script></textarea>
+          <textarea readonly><script src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.9.0/dist/bible-sdk.js">&lt;/script></textarea>
         </sensible-code>
         <details id="setup">
           <summary>Migrating from Scripture Inline</summary>
@@ -575,7 +635,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><td><code>reference</code></td><td><code>heading</code></td><td>Where the reference shows: <code>heading</code>, <code>citation</code>, <code>quote</code>, or <code>none</code>.</td></tr>
             <tr><td><code>verse-numbers</code></td><td>Shown</td><td><code>hide</code> removes verse numbers.</td></tr>
             <tr><td><code>headings</code></td><td>Shown</td><td><code>hide</code> removes section headings.</td></tr>
-            <tr><td><code>red-letter</code></td><td>On</td><td><code>off</code> shows the words of Jesus in the text color.</td></tr>
+            <tr><td><code>red-letter</code></td><td>Provider styling</td><td><code>on</code> colors marked words of Jesus red; <code>off</code> uses the text color. Omitted: red for AO Lab, YouVersion, and fetch.bible; official muted styling for API.Bible. Requires source markers.</td></tr>
             <tr><td><code>theme</code></td><td><code>light</code></td><td><code>light</code>, <code>dark</code>, or <code>auto</code> to follow the system.</td></tr>
             <tr><td><code>direction</code></td><td>From the passage</td><td><code>ltr</code> or <code>rtl</code>.</td></tr>
             <tr><td><code>yvp-api-host</code></td><td>YouVersion's API</td><td>Another YouVersion API host, for testing.</td></tr>
@@ -621,7 +681,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><th scope="col">Event</th><th scope="col">Detail</th><th scope="col">When</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>scripture-load</code></td><td><code>provider</code>, <code>passageId</code>, <code>bibleVersionId</code>, <code>bibleVersion</code></td><td>The passage is on screen. The version has <code>id</code>, <code>abbreviation</code>, and <code>title</code>. YouVersion also includes the original <code>yvpBibleVersionId</code> and <code>yvpBibleVersion</code>.</td></tr>
+            <tr><td><code>scripture-load</code></td><td><code>provider</code>, <code>passageId</code>, <code>bibleVersionId</code>, <code>bibleVersion</code></td><td>The passage has rendered, not necessarily become visible. The version has <code>id</code>, <code>abbreviation</code>, and <code>title</code>. API.Bible also supplies <code>reporting</code> and <code>cache</code>. YouVersion includes the original <code>yvpBibleVersionId</code> and <code>yvpBibleVersion</code>.</td></tr>
             <tr><td><code>scripture-error</code></td><td>The error</td><td>The passage could not load.</td></tr>
           </tbody>
         </table>
@@ -866,7 +926,7 @@ const english = versions.filter((version) => version.language === "en");</textar
       const showReferencesCode = () =>
         showCode("references-code", "html", [
           "<script",
-          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.8.0/dist/bible-sdk.js"',
+          '  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.9.0/dist/bible-sdk.js"',
           `  data-mode="${mode}"`,
           ...(mode === "card" && trigger === "hover" ? ['  data-trigger="hover"'] : []),
           "></" + "script>",
