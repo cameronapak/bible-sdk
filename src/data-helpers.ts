@@ -64,6 +64,7 @@ export function requestCache(timeToLive: Duration.Input = Duration.infinity) {
         );
       });
     },
+    invalidate: (key: string) => Cache.invalidate(cache, key),
     clear: Cache.invalidateAll(cache),
   };
 }

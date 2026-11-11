@@ -23,6 +23,41 @@ function nextEvent(element: HTMLElement, name = "scripture-load"): Promise<Custo
   return new Promise((resolve) => element.addEventListener(name, (event) => resolve(event as CustomEvent), { once: true }));
 }
 
+it("exposes reporting only after a styled display loads, including cached displays, without reporting layout changes", async () => {
+  const reporting = { kind: "api-bible-fums" as const, token: "invented-view-token" };
+  const provider: BibleProvider = {
+    id: "api-bible", defaultVersionId: "edition",
+    async getPassage() { return {
+      html: '<p class="q2"><span class="v">1</span>Invented poetry</p>',
+      version: { id: "edition", title: "Test Bible", abbreviation: "TB" },
+      attribution: "Owner", reporting, cache: { expiresAt: Date.now() + 60_000 },
+      containerAttributes: { class: "scripture-bible api-bible scripture-styles" },
+      stylesheets: [{ kind: "bible", href: "https://example.com/scripture.css" }],
+    }; },
+  };
+  for (const tag of ["bible-sk-passage", "si-passage"] as const) {
+    const passage = document.createElement(tag);
+    passage.bibleProvider = provider;
+    passage.setAttribute("passage-id", "PSA.3.1");
+    passage.setAttribute("theme", "dark");
+    const observed: CustomEvent[] = [];
+    passage.addEventListener("scripture-load", (event) => observed.push(event as CustomEvent));
+    const loaded = nextEvent(passage);
+    document.body.append(passage);
+    await vi.waitFor(() => expect(passage.shadowRoot?.querySelector("link")).not.toBeNull());
+    expect(observed).toHaveLength(0);
+    passage.shadowRoot!.querySelector("link")!.dispatchEvent(new Event("load"));
+    expect((await loaded).detail).toMatchObject({ provider: "api-bible", reporting, cache: { expiresAt: expect.any(Number) } });
+    expect(passage.shadowRoot!.querySelector(".api-bible")?.getAttribute("data-color-mode")).toBe("dark");
+    expect(passage.shadowRoot!.querySelector(".q2")?.textContent).toBe("1Invented poetry");
+    passage.setAttribute("theme", "light");
+    passage.setAttribute("reference", "none");
+    expect(passage.shadowRoot!.querySelector(".api-bible")?.getAttribute("data-color-mode")).toBe("light");
+    expect(passage.shadowRoot!.querySelector('[part="attribution"]')?.textContent).toBe("Owner");
+    expect(observed).toHaveLength(1);
+  }
+});
+
 it.each(["si-passage", "bible-sk-passage"] as const)("%s loads AO Lab/BSB without a key and emits provider-neutral metadata", async (tag) => {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "BSB", shortName: "BSB", name: "Berean Standard Bible", language: "eng", textDirection: "ltr", licenseUrl: "https://berean.bible/" },
