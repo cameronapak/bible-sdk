@@ -125,7 +125,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.9.0/dist/bible-sdk.js"
 ></script>
 ```
 
@@ -165,7 +165,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | `reference` | `heading` | Where the reference shows: `heading`, `citation`, `quote`, or `none`. |
 | `verse-numbers` | Shown | `hide` removes verse numbers. |
 | `headings` | Shown | `hide` removes section headings. |
-| `red-letter` | On | `off` shows the words of Jesus in the text color. |
+| `red-letter` | Provider styling | `on` colors marked words of Jesus red; `off` uses the text color. Omitted: red for AO Lab, YouVersion, and fetch.bible; official muted styling for API.Bible. Requires source markers. |
 | `theme` | `light` | `light`, `dark`, or `auto` to follow the system. |
 | `direction` | From the passage | `ltr` or `rtl`. |
 | `yvp-public-app-key` | The script tag's key | Overrides the page-wide app key. |
@@ -201,7 +201,7 @@ The passage renders in a shadow root, so page CSS can't change it by accident. T
 
 | Event | Detail | When |
 | --- | --- | --- |
-| `scripture-load` | `provider`, `passageId`, `bibleVersionId`, `bibleVersion` | The passage is on screen. `bibleVersion` has `id`, `abbreviation`, and `title`. YouVersion also includes the original `yvpBibleVersionId` and `yvpBibleVersion`. |
+| `scripture-load` | `provider`, `passageId`, `bibleVersionId`, `bibleVersion` | The passage has rendered, not necessarily become visible. `bibleVersion` has `id`, `abbreviation`, and `title`. API.Bible also supplies `reporting` and `cache`. YouVersion includes the original `yvpBibleVersionId` and `yvpBibleVersion`. |
 | `scripture-error` | The error | The passage could not load. |
 
 ## `<bible-sk-passage-input>`
@@ -327,6 +327,11 @@ Use AO Lab by default, or select fetch.bible, YouVersion, or API.Bible. All four
 | [YouVersion](https://platform.youversion.com/) | Requires a public app key. | `3034` |
 | [API.Bible](https://api.bible/) | Your own private key and official SDK client, server-only. | Explicitly choose an accessible edition. |
 
+> [!IMPORTANT]
+> API.Bible requires server-side setup. Keep your API.Bible key on your server. For browser components, use your app's backend or a compatible serverless function to fetch passages. You do not need a separate proxy service.
+>
+> If your site only serves static files, add a server endpoint or choose [AO Lab](#ao-lab-use-the-default) for a browser-only setup without an API key.
+
 Version IDs belong to one provider: `BSB`, `eng_bsb`, and `3034` are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.
 
 **YouVersion has additional paid-app and AI-use conditions.** Review the [YouVersion requirements](#youversion-requirements) before using that adapter.
@@ -362,6 +367,8 @@ Set `usage.commercial` to your application's actual use. The example declares no
 
 ### API.Bible: your own server-side client
 
+**Browser components use your server.** Create an endpoint on your backend or a compatible serverless function. The component requests passages from that endpoint; only your server sends the private key to API.Bible.
+
 Install the [official SDK](https://api.bible/sdk) alongside Bible SDK on a Node 20+ or Bun server. This adapter uses the `node` export condition; other server runtimes need Node-compatible package resolution:
 
 ```sh
@@ -390,7 +397,7 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
 // and reports passage.reporting.token on each actual web display.
 ```
 
-Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SDK hooks/custom transports that log credentials or response bodies. Choose `defaultVersionId` from your account's `listVersions()` results, not an AO Lab or YouVersion ID. No edition is chosen automatically. Chapters exclude intro entries. Plain text preserves scriptural superscriptions and poetry, omits editorial headings and notes, and does not claim KJV numbering. Incomplete endpoint coverage fails rather than silently claiming the whole requested range; the upstream passage endpoint can limit results to 200 verses.
+Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SDK hooks/custom transports that log credentials or response bodies. Choose `defaultVersionId` from your account's `listVersions()` results, not an AO Lab or YouVersion ID. No edition is chosen automatically. Chapters exclude intro entries. Plain text preserves scriptural superscriptions and poetry line breaks, not style-derived indentation, alignment, italics, or small caps. It omits editorial headings and notes and does not claim KJV numbering. Incomplete endpoint coverage fails rather than silently claiming the whole requested range; the upstream passage endpoint can limit results to 200 verses.
 
 **Application obligations:** review the [Terms](https://api.bible/terms-and-conditions), [AUP and account agreements](https://care.api.bible/article/392-how-to-create-a-new-app), and each translation's metadata. Returned instructions are guidance, not certification of compliance.
 
@@ -400,7 +407,63 @@ Set upstream `maxAttempts: 1` so Effect owns retries and deadlines, and avoid SD
 - **Plan and content restrictions:** Starter is noncommercial even for public-domain editions. Each app owner must accept the required account agreements, including the Statement of Orthodoxy, and check licenses, content-integrity requirements, territorial/export restrictions, and economic sanctions. Violations can lead to suspension/revocation, removal duties, audits, fees, and indemnification.
 - **DRM and AI:** the published terms require application-level DRM restricting copying/distribution, printing over 100 verses, territory and device counts; they do not specify a universally compliant implementation. Keeping the key private does not satisfy that whole obligation. [Express Licensing guidance](https://care.api.bible/article/405-express-licensing-faqs) restricts copyrighted and Creative Commons Scripture in LLM prompts as well as training. Public-domain runtime prompts are permitted; confirm training, TTS, and exports separately.
 
-This is a data-only adapter, not a browser-component or script-tag provider. Your application owns the backend and display/reporting integration. Do not pass this provider directly to `defineScripturePassage()` or add an API.Bible key attribute to markup.
+#### API.Bible in the passage component
+
+The same server provider implements `getPassageDisplay(versionId, passageId)`. It requests native HTML once, validates coverage, sanitizes unsafe markup, and preserves USX classes for poetry, scriptural titles, small caps, italics, and tables. The component loads a reviewed, commit-pinned copy of API.Bible's [official Scripture Styles](https://docs.api.bible/resources/scripture-styling/) inside its shadow root. That CSS is optional under API.Bible's guidance, not a required design. Its defaults remain customizable with `--scripture-*`; `theme`, `verse-numbers`, `headings`, and `direction` still work. Omit `red-letter` to keep the official muted `.wj` styling, use `red-letter="on"` to color marked words of Jesus red, or use `red-letter="off"` for the text color. These controls require the translation to supply words-of-Jesus markers. Hiding editorial headings leaves scriptural Psalm titles visible.
+
+Keep the provider on your server. Expose safe displays through an app-owned endpoint, then pass a browser provider to `defineScripturePassage`. There is no private-key attribute and no built-in `provider="api-bible"` string option.
+
+```ts
+// Server route: GET /api/scripture. Use your own server's routing convention.
+import { Effect } from "effect";
+import { createBibleClient } from "@americanbible/api-bible-sdk";
+import { createApiBibleProvider } from "@faith-tools/bible-sdk/providers/api-bible";
+
+const provider = createApiBibleProvider({
+  client: createBibleClient({ apiKey: process.env.API_DOT_BIBLE_API_KEY!, retry: { maxAttempts: 1 } }),
+  defaultVersionId: "bba9f40183526463-01",
+  copyrightUrl: "/copyright/bible", // Build this page before serving Scripture.
+});
+const allowedVersions = new Set([provider.defaultVersionId]); // Your licensed editions.
+
+export async function GET(request: Request) {
+  const query = new URL(request.url).searchParams;
+  const versionId = query.get("version") ?? provider.defaultVersionId;
+  if (!allowedVersions.has(versionId)) return new Response("Edition unavailable", { status: 400 });
+  try {
+    const value = query.has("versions")
+      ? (await Effect.runPromise(provider.listVersions())).filter(({ id }) => allowedVersions.has(id))
+      : await Effect.runPromise(provider.getPassageDisplay(versionId, query.get("passage") ?? ""), { signal: request.signal });
+    return Response.json(value, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return new Response("Scripture unavailable", { status: 502 }); // Never return SDK diagnostics.
+  }
+}
+```
+
+```ts
+// Browser code. Only your server endpoint receives requests, never your private key.
+import { defineScripturePassage, type BibleProvider } from "@faith-tools/bible-sdk";
+
+async function read(query: URLSearchParams) {
+  const response = await fetch(`/api/scripture?${query}`);
+  if (!response.ok) throw new Error("Scripture unavailable");
+  return response.json();
+}
+const provider: BibleProvider = {
+  id: "api-bible", defaultVersionId: "bba9f40183526463-01",
+  getPassage: (version, passage) => read(new URLSearchParams({ version, passage })),
+  listVersions: () => read(new URLSearchParams({ versions: "1" })),
+};
+defineScripturePassage({ provider });
+// <bible-sk-passage passage-id="PSA.3.1-2"></bible-sk-passage>
+```
+
+Add your app's authentication, rate limits, edition/access controls, and privacy-aware FUMS integration. This example does not create a public shared-key proxy. The translation picker can use the same browser provider through `defineVersionInput({ provider })`.
+
+`copyrightUrl` is required for display, not for plain-text data access. Every quotation page gets a visible link to it. Populate that app-owned page from sanitized `publisher.copyrightHtml` and `publisher.infoHtml`, the full translation name/abbreviation, the exact current dashboard/Appendix A citation, and a clickable rights-holder link. Check the result; raw metadata alone does not guarantee a complete notice. Applicable direct publisher formatting/citation agreements take precedence, and conflicts with API.Bible's remaining minimum requirements must be resolved before use.
+
+After rendering, `scripture-load.detail.reporting` carries the FUMS token and `detail.cache.expiresAt` carries the absolute refresh deadline. Wire the event to your app's actual-view reporter, including later displays from the component's cache. The event is not proof of visibility: hidden/offscreen components and prerenders need host visibility handling. Layout/theme changes do not fire a new load event. The component sends no analytics itself. Cached displays refresh on the next load at the deadline; the host must also refresh/remove long-lived mounted displays and respond to earlier revocations. A host that still serves expired data causes a display error instead of stale Scripture.
 
 ### YouVersion: add a public app key
 
@@ -448,7 +511,7 @@ Script tags support AO Lab by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.7.0/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.9.0/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
@@ -504,6 +567,7 @@ The built-in instruction codes are stable identifiers for explanatory guidance, 
 | `fetch-bible-normalization`, `fetch-bible-license` | Check numbering, `sourceLimitations`, and the selected translation's terms. |
 | `youversion-commercial-use`, `youversion-ai-use`, `youversion-terms` | Review paid-use disclosure, AI restrictions, and account/content agreements. |
 | `api-bible-fums`, `api-bible-publisher`, `api-bible-cache`, `api-bible-usage`, `api-bible-ai` | Implement actual-view reporting, safe publisher notices, downstream refresh/removal, account/plan/license/DRM controls, and AI restrictions. |
+| `api-bible-html` | Native server-side displays preserve USX formatting and use the optional official stylesheet; plain text cannot reproduce it. Publisher formatting/citation agreements still apply. |
 | `fetch-bible-native-html`, `youversion-native-html` | Apply `display.nativeHtml` resources only for separately requested native HTML. |
 
 License restriction keys remain provider-specific. Review missing or unfamiliar fields:

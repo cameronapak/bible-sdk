@@ -6,6 +6,7 @@ import { TestClock } from "effect/testing";
 import { createScriptureClient } from "../data.js";
 import { createScriptureClient as createEffectClient, RequestPolicy } from "../data-effect.js";
 import { createApiBibleProvider, type ApiBibleClient } from "./api-bible.js";
+import { fetchDisplayEffect } from "../providers.js";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -19,13 +20,13 @@ const content = (id: string, nodes: unknown[], verseCount?: number) => ({
   data: { id, bibleId: "edition", reference: "Test reference", copyright: "Passage copyright", content: nodes, verseCount },
   meta: { fumsToken: "invented-reporting-token" },
 });
-function setup() {
+function setup(options: { copyrightUrl?: string } = {}) {
   const client = {
     bibles: { list: vi.fn(async () => ({ data: [bible] })), get: vi.fn(async () => ({ data: bible })) },
     books: { list: vi.fn(async () => ({ data: [{ id: "PSA", name: "Psalms" }] })) },
     chapters: {
       list: vi.fn(async () => ({ data: [{ id: "PSA.intro", number: "intro" }, { id: "PSA.3", number: "3" }] })),
-      get: vi.fn(async () => content("PSA.3", [
+      get: vi.fn<ApiBibleClient["chapters"]["get"]>(async () => content("PSA.3", [
         para("s1", text("Editorial")), para("r", text("Cross reference")),
         para("sp", text("Speaker label")), para("qa", text("Acrostic label", "PSA.3.1")),
         para("d", text("Scriptural superscription.")),
@@ -34,9 +35,9 @@ function setup() {
         para("p", text("Cl", "PSA.3.3"), { type: "tag", name: "note", items: [text("Footnote")] }, text("osed.", "PSA.3.3")),
       ])),
     },
-    passages: { get: vi.fn(async () => content("JHN.3.16-JHN.3.18", [para("p", text("Selected. ", "JHN.3.16"), text("Last.", "JHN.3.18"))])) },
+    passages: { get: vi.fn<ApiBibleClient["passages"]["get"]>(async () => content("JHN.3.16-JHN.3.18", [para("p", text("Selected. ", "JHN.3.16"), text("Last.", "JHN.3.18"))])) },
   } satisfies ApiBibleClient;
-  const provider = createApiBibleProvider({ client, defaultVersionId: "edition" });
+  const provider = createApiBibleProvider({ client, defaultVersionId: "edition", ...options });
   return { upstream: client, provider, client: createScriptureClient({ provider }), native: createEffectClient({ provider }) };
 }
 
@@ -177,3 +178,58 @@ it("refuses browser construction without making requests", () => {
   vi.stubGlobal("window", {});
   expect(() => setup()).toThrow("API.Bible requires a server-side client");
 });
+
+const displayContent = (html = '<p class="s1">Editorial</p><p class="d">Scriptural title</p><p class="q1"><span class="verse-span" data-verse-id="PSA.3.1"><span class="v">1</span>First <span class="nd">Lord</span>.</span></p><p class="q2"><span data-verse-id="PSA.3.2"><span class="v">2</span>Second <span class="add">line</span>.</span></p><table><tbody><tr><td class="tc1">Cell A</td><td class="tc2">Cell B</td></tr></tbody></table>') => ({
+  ...content("PSA.3.1-PSA.3.2", []),
+  data: { ...content("PSA.3.1-PSA.3.2", []).data, copyright: '<p>Publisher &amp; partners <a href="https://example.com">notice</a></p>', content: html },
+});
+
+it("returns safe native Scripture HTML, official styles, copyright links and reporting from one display request", async () => {
+  const { provider, upstream } = setup({ copyrightUrl: "/copyright/bible" });
+  upstream.passages.get.mockImplementation(async (_id, passageId, params) => {
+    if (passageId !== "PSA.3.1-PSA.3.2" || params.contentType !== "html" || !params.includeVerseSpans || !params.includeVerseNumbers) throw { statusCode: 400 };
+    return displayContent(displayContent().data.content + '<script>alert(1)</script><img src="tracking" onerror="alert(1)"><p style="display:none" onclick="alert(1)">Safe ending</p>');
+  });
+  const display = await Effect.runPromise(provider.getPassageDisplay("edition", "PSA.3.1-2"));
+  expect(display.html).toContain('<p class="q2"><span data-verse-id="PSA.3.2">');
+  expect(display.html).toContain('<span class="nd">Lord</span>');
+  expect(display.html).toContain('<span class="add">line</span>');
+  expect(display.html).toContain('<p class="d">Scriptural title</p>');
+  expect(display.html).toContain('<td class="tc1">Cell A</td><td class="tc2">Cell B</td>');
+  expect(display.html).not.toMatch(/script|img|tracking|onclick|onerror|style=/);
+  expect(display.attribution).toBe("Publisher & partners notice · TB · Copyright information · Source: API.Bible");
+  expect(display.attributionHtml).toContain('Publisher &amp; partners notice');
+  expect(display.attributionHtml).toContain('href="/copyright/bible"');
+  expect(display).toMatchObject({ direction: "rtl", containerAttributes: { class: "scripture-bible api-bible scripture-styles", lang: "he" }, reporting: { kind: "api-bible-fums", token: "invented-reporting-token" }, cache: { expiresAt: expect.any(Number) } });
+  expect(display.stylesheets?.[0]).toMatchObject({ kind: "bible", href: expect.stringContaining("americanbible/scripture-styles@") });
+});
+
+it("requires an app copyright page and rejects truncated native HTML or missing FUMS", async () => {
+  const withoutPage = setup();
+  await expect(Effect.runPromise(withoutPage.provider.getPassageDisplay("edition", "PSA.3.1-2"))).rejects.toMatchObject({ code: "unsupported" });
+  expect(() => createApiBibleProvider({ client: withoutPage.upstream, defaultVersionId: "edition", copyrightUrl: "javascript:alert(1)" })).toThrow();
+  const { provider, upstream } = setup({ copyrightUrl: "/copyright/bible" });
+  upstream.passages.get.mockResolvedValue(displayContent('<span data-verse-id="PSA.3.1">Truncated</span>'));
+  await expect(Effect.runPromise(provider.getPassageDisplay("edition", "PSA.3.1-2"))).rejects.toMatchObject({ code: "unavailable" });
+  upstream.passages.get.mockResolvedValue({ ...displayContent(), meta: {} });
+  await expect(Effect.runPromise(provider.getPassageDisplay("edition", "PSA.3.1-2"))).rejects.toMatchObject({ code: "invalid_response" });
+  upstream.passages.get.mockResolvedValue(displayContent('<script data-verse-id="PSA.3.1">Unsafe</script><span data-verse-id="PSA.3.2">Last only</span>'));
+  await expect(Effect.runPromise(provider.getPassageDisplay("edition", "PSA.3.1-2"))).rejects.toMatchObject({ code: "unavailable" });
+});
+
+it.effect("refreshes component displays at the earliest publisher deadline, not 14 days after the display fetch", () => Effect.gen(function*() {
+  const { provider, upstream, native } = setup({ copyrightUrl: "/copyright/bible" });
+  yield* native.getPassage({ passageId: "PSA.3" });
+  upstream.passages.get.mockResolvedValue(displayContent());
+  const browserProvider = { id: "api-bible", defaultVersionId: "edition", effects: provider, getPassage: () => Effect.runPromise(provider.getPassageDisplay("edition", "PSA.3.1-2")) };
+  yield* TestClock.adjust("13 days");
+  const first = yield* fetchDisplayEffect(browserProvider, "edition", "PSA.3.1-2");
+  upstream.passages.get.mockResolvedValue({ ...displayContent(), meta: { fumsToken: "refreshed-token" } });
+  expect((yield* fetchDisplayEffect(browserProvider, "edition", "PSA.3.1-2")).reporting).toEqual(first.reporting);
+  yield* TestClock.adjust("1 day");
+  const refreshed = yield* fetchDisplayEffect(browserProvider, "edition", "PSA.3.1-2");
+  expect(refreshed.reporting?.token).toBe("refreshed-token");
+  expect(refreshed.cache!.expiresAt - first.cache!.expiresAt).toBe(14 * 24 * 60 * 60 * 1000);
+  const stale = { ...browserProvider, effects: undefined, getPassage: async () => ({ ...first, cache: { expiresAt: 0 } }) };
+  expect(yield* Effect.flip(fetchDisplayEffect(stale, "edition", "PSA.3.1-2"))).toMatchObject({ code: "invalid_response" });
+}));
