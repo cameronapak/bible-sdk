@@ -1,6 +1,6 @@
 {
   "name": "@faith-tools/bible-sdk",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Unified Bible data SDK with async and Effect APIs, plus drop-in Scripture web components.",
   "license": "MIT",
   "author": "Cameron Pak (https://cameronpak.com)",
