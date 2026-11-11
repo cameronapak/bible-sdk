@@ -67,8 +67,7 @@
     "check:data-types": "tsc --ignoreConfig --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM scripts/check-data-types.ts",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:data-types && pnpm build:site",
-    "changeset": "changeset",
-    "version-packages": "changeset version && node scripts/sync-cdn-version.ts"
+    "changeset": "changeset"
   },
   "dependencies": {
     "@gracious.tech/fetch-client": "2.6.0",
