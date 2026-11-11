@@ -12,7 +12,9 @@ import {
 } from "grab-bcv";
 
 export const PASSAGE_INPUT_TAG = "si-passage-input";
+/** @deprecated The rebrand omitted the d in SDK. Use BIBLE_SDK_PASSAGE_INPUT_TAG. */
 export const BIBLE_PASSAGE_INPUT_TAG = "bible-sk-passage-input";
+export const BIBLE_SDK_PASSAGE_INPUT_TAG = "bible-sdk-passage-input";
 
 // Shadow DOM, so page CSS can't restyle the field or its list. The wrapper resets what the
 // host inherits. The field reads the page's design tokens (--input, --ring, --radius, and
@@ -482,15 +484,18 @@ export class ScripturePassageInput extends HTMLElement {
   }
 }
 
-/** Register once in a browser entry point. Importing this module does not register it. */
+/** Registers <bible-sdk-passage-input>, deprecated <bible-sk-passage-input>, and compatible <si-passage-input>. */
 export function definePassageInput(): void {
   if (!customElements.get(PASSAGE_INPUT_TAG)) customElements.define(PASSAGE_INPUT_TAG, ScripturePassageInput);
   if (!customElements.get(BIBLE_PASSAGE_INPUT_TAG)) customElements.define(BIBLE_PASSAGE_INPUT_TAG, class extends ScripturePassageInput {});
+  if (!customElements.get(BIBLE_SDK_PASSAGE_INPUT_TAG)) customElements.define(BIBLE_SDK_PASSAGE_INPUT_TAG, class extends ScripturePassageInput {});
 }
 
 declare global {
   interface HTMLElementTagNameMap {
     "si-passage-input": ScripturePassageInput;
+    /** @deprecated Use bible-sdk-passage-input. */
     "bible-sk-passage-input": ScripturePassageInput;
+    "bible-sdk-passage-input": ScripturePassageInput;
   }
 }

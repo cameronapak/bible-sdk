@@ -7,9 +7,9 @@ import type { ProviderOptions } from "./providers";
 export { findReferences, type FoundReference } from "./find";
 export { unwrapReferences, wrapReferences } from "./scan";
 export { createScriptureCard } from "./card";
-export { BIBLE_PASSAGE_INPUT_TAG, PASSAGE_INPUT_TAG, ScripturePassageInput, definePassageInput, type PassageInputDetail } from "./passage-input";
-export { BIBLE_VERSION_INPUT_TAG, VERSION_INPUT_TAG, ScriptureVersionInput, defineVersionInput, type VersionInputDetail } from "./version-input";
-export { BIBLE_PASSAGE_TAG, SCRIPTURE_PASSAGE_TAG, ScripturePassage, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
+export { BIBLE_SDK_PASSAGE_INPUT_TAG, BIBLE_PASSAGE_INPUT_TAG, PASSAGE_INPUT_TAG, ScripturePassageInput, definePassageInput, type PassageInputDetail } from "./passage-input";
+export { BIBLE_SDK_VERSION_INPUT_TAG, BIBLE_VERSION_INPUT_TAG, VERSION_INPUT_TAG, ScriptureVersionInput, defineVersionInput, type VersionInputDetail } from "./version-input";
+export { BIBLE_SDK_PASSAGE_TAG, BIBLE_PASSAGE_TAG, SCRIPTURE_PASSAGE_TAG, ScripturePassage, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
 export { aoLabProvider, createAOLabProvider, helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
 
 export type Mode = "link" | "card";

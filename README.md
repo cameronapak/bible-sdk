@@ -17,7 +17,7 @@ Bible text comes from [AO Lab's Free Use Bible API](https://bible.helloao.org/do
 
 Bible SDK is the new name for Scripture Inline. Replace `@faith-tools/scripture-inline` with `@faith-tools/bible-sdk` in your dependencies and imports, keeping `/data`, `/data/effect`, and `/providers/*` subpaths. For script tags, update the package URL and use `dist/bible-sdk.js`; `dist/scripture-inline.js` remains an identical compatibility copy in the new package. Load only one script.
 
-New markup uses `<bible-sk-passage>`, `<bible-sk-passage-input>`, and `<bible-sk-version-input>`. Their original `si-*` names remain supported, and both names can coexist on a page. Registration functions register both names. Existing tag constants still return the old names; `BIBLE_PASSAGE_TAG`, `BIBLE_PASSAGE_INPUT_TAG`, and `BIBLE_VERSION_INPUT_TAG` return the new names. If you rename your markup, update matching CSS selectors and DOM queries too.
+Use `<bible-sdk-passage>`, `<bible-sdk-passage-input>`, and `<bible-sdk-version-input>`. We mistakenly published `bible-sk-*` during the rebrand; those names are deprecated but still work, as do `si-*`. New tag constants use `BIBLE_SDK_*_TAG`; existing constants keep their values. Update CSS selectors and DOM queries when renaming tags. Scripts pinned to 0.9.1 or earlier need an upgrade for the corrected names.
 
 Attributes (including `data-scripture-inline-ignore`), `scriptureInline()` and other JavaScript exports, `scripture-*` events, and CSS classes and custom properties remain compatible. Existing pinned old-package CDN URLs continue to use their original release; they do not automatically upgrade or register the new tags.
 
@@ -146,14 +146,14 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | `data-mode` / `mode` | `card` | `card` opens a Scripture card. `link` links to route.bible. |
 | `data-trigger` / `trigger` | `click` | `hover` also opens cards on mouse hover. |
 | `data-yvp-bible-version-id` / `yvpBibleVersionId` | `3034` | YouVersion-only alias. `bibleVersionId` takes precedence. |
-| `data-reference` / `reference` | `heading` | The card's reference layout, as on `<bible-sk-passage>`. |
+| `data-reference` / `reference` | `heading` | The card's reference layout, as on `<bible-sdk-passage>`. |
 | `root` | Whole page | The element to look for references in. Leave it unset on sites that replace `<body>`. JavaScript only. |
 | `watch` | `true` | Also links references in content added later, such as pages that Turbo swaps in. `false` scans once. JavaScript only. |
 
-## `<bible-sk-passage>`
+## `<bible-sdk-passage>`
 
 ```html
-<bible-sk-passage passage-id="JHN.3.16"></bible-sk-passage>
+<bible-sdk-passage passage-id="JHN.3.16"></bible-sdk-passage>
 ```
 
 | Attribute | Default | Purpose |
@@ -174,7 +174,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 Attributes choose what the passage shows. CSS properties choose how it looks, so one rule can style every passage on a page:
 
 ```css
-bible-sk-passage {
+bible-sdk-passage {
   --scripture-font-size: 18px;
   --scripture-max-width: 40rem;
 }
@@ -187,7 +187,7 @@ bible-sk-passage {
 | `--scripture-font-family` | Georgia (AO Lab), Untitled Serif (YouVersion) | Font of the Bible text. |
 | `--scripture-max-width` | `32rem` | Line length of the text, reference, and copyright. |
 
-The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `bible-sk-passage::part(citation) { font-style: italic; }`.
+The passage renders in a shadow root, so page CSS can't change it by accident. To restyle a piece on purpose, use its part, such as `bible-sdk-passage::part(citation) { font-style: italic; }`.
 
 | Part | What it is |
 | --- | --- |
@@ -204,12 +204,12 @@ The passage renders in a shadow root, so page CSS can't change it by accident. T
 | `scripture-load` | `provider`, `passageId`, `bibleVersionId`, `bibleVersion` | The passage has rendered, not necessarily become visible. `bibleVersion` has `id`, `abbreviation`, and `title`. API.Bible also supplies `reporting` and `cache`. YouVersion includes the original `yvpBibleVersionId` and `yvpBibleVersion`. |
 | `scripture-error` | The error | The passage could not load. |
 
-## `<bible-sk-passage-input>`
+## `<bible-sdk-passage-input>`
 
 ```html
 <form>
   <label for="passage">Passage</label>
-  <bible-sk-passage-input id="passage" name="passage" placeholder="Romans 8 or John 3:16"></bible-sk-passage-input>
+  <bible-sdk-passage-input id="passage" name="passage" placeholder="Romans 8 or John 3:16"></bible-sdk-passage-input>
 </form>
 ```
 
@@ -227,23 +227,23 @@ Use the field to choose a book, chapter, verse, or range. Focus the empty field 
 | --- | --- | --- |
 | `change` | `passageId`, `label` | The reader picks a passage or clears the field. `passageId` is empty when cleared. |
 
-The field renders in a shadow root. It reads the page's `--input`, `--ring`, `--radius`, `--popover`, `--accent`, and `--font-sans` tokens when they exist. To restyle it further, use its parts: `input`, `listbox`, `option`, and `count`, such as `bible-sk-passage-input::part(input) { height: 2.5rem; }`.
+The field renders in a shadow root. It reads the page's `--input`, `--ring`, `--radius`, `--popover`, `--accent`, and `--font-sans` tokens when they exist. To restyle it further, use its parts: `input`, `listbox`, `option`, and `count`, such as `bible-sdk-passage-input::part(input) { height: 2.5rem; }`.
 
 To show the picked passage:
 
 ```js
-const input = document.querySelector("bible-sk-passage-input");
-const passage = document.querySelector("bible-sk-passage");
+const input = document.querySelector("bible-sdk-passage-input");
+const passage = document.querySelector("bible-sdk-passage");
 input.addEventListener("change", (event) => {
   if (event.detail.passageId) passage.setAttribute("passage-id", event.detail.passageId);
 });
 ```
 
-## `<bible-sk-version-input>`
+## `<bible-sdk-version-input>`
 
 ```html
 <label for="translation">Translation</label>
-<bible-sk-version-input id="translation" name="translation" value="BSB"></bible-sk-version-input>
+<bible-sdk-version-input id="translation" name="translation" value="BSB"></bible-sdk-version-input>
 ```
 
 Search translations by name or abbreviation and filter by language. The field starts with the selected translation's language, or the browser's language. Typing does not change the selection until you choose a translation.
@@ -272,8 +272,8 @@ The `value` property reads or sets the selected ID. `bibleVersion` has `id`, `ab
 To connect the picker to a passage using the same provider:
 
 ```js
-document.querySelector("bible-sk-version-input").addEventListener("change", (event) => {
-  document.querySelector("bible-sk-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
+document.querySelector("bible-sdk-version-input").addEventListener("change", (event) => {
+  document.querySelector("bible-sdk-passage").setAttribute("bible-version-id", event.detail.bibleVersionId);
 });
 ```
 
@@ -299,11 +299,11 @@ scriptureInline({ root: document.querySelector("article") });
 | Export | Purpose |
 | --- | --- |
 | `scriptureInline(options)` | Finds and links references. Takes the [Bible references](#bible-references) options and returns `{ links, stop }`. `stop()` restores the plain text. |
-| `defineScripturePassage(options)` | Registers `<bible-sk-passage>` and `<si-passage>`. Accepts the provider options above as page-wide defaults. Passage attributes override them. |
+| `defineScripturePassage(options)` | Registers `<bible-sdk-passage>`, deprecated `<bible-sk-passage>`, and compatible `<si-passage>`. Accepts the provider options above as page-wide defaults. Passage attributes override them. |
 | `aoLabProvider` | The default provider, using the `free-use-bible-api` SDK. `helloaoProvider` remains a deprecated alias. |
 | `createYouVersionProvider({ yvpPublicAppKey, yvpApiHost })` | Creates the optional YouVersion provider. |
-| `definePassageInput()` | Registers `<bible-sk-passage-input>` and `<si-passage-input>`. |
-| `defineVersionInput(options)` | Registers `<bible-sk-version-input>` and `<si-version-input>`. Shares provider defaults with `defineScripturePassage()`. |
+| `definePassageInput()` | Registers `<bible-sdk-passage-input>`, deprecated `<bible-sk-passage-input>`, and compatible `<si-passage-input>`. |
+| `defineVersionInput(options)` | Registers `<bible-sdk-version-input>`, deprecated `<bible-sk-version-input>`, and compatible `<si-version-input>`. Shares provider defaults with `defineScripturePassage()`. |
 | `listBibleVersions(options)` | Returns the provider's catalog as `Promise<BibleVersion[]>`. Accepts provider options; caches successful requests. |
 | `findReferences(text)` | Returns the references in a string, without touching the page. |
 
@@ -456,7 +456,7 @@ const provider: BibleProvider = {
   listVersions: () => read(new URLSearchParams({ versions: "1" })),
 };
 defineScripturePassage({ provider });
-// <bible-sk-passage passage-id="PSA.3.1-2"></bible-sk-passage>
+// <bible-sdk-passage passage-id="PSA.3.1-2"></bible-sdk-passage>
 ```
 
 Add your app's authentication, rate limits, edition/access controls, and privacy-aware FUMS integration. This example does not create a public shared-key proxy. The translation picker can use the same browser provider through `defineVersionInput({ provider })`.

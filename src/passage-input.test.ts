@@ -7,7 +7,7 @@ HTMLElement.prototype.attachInternals = () => ({ labels: [], setFormValue() {}, 
 definePassageInput();
 afterEach(() => document.body.replaceChildren());
 
-it.each(["si-passage-input", "bible-sk-passage-input"] as const)("%s commits a typed passage with the existing change event", (tag) => {
+it.each(["bible-sdk-passage-input", "si-passage-input", "bible-sk-passage-input"] as const)("%s commits a typed passage with the existing change event", (tag) => {
   const field = document.createElement(tag);
   document.body.append(field);
   const input = field.shadowRoot!.querySelector("input")!;

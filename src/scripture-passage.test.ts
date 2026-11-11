@@ -35,7 +35,7 @@ it("exposes reporting only after a styled display loads, including cached displa
       stylesheets: [{ kind: "bible", href: "https://example.com/scripture.css" }],
     }; },
   };
-  for (const tag of ["bible-sk-passage", "si-passage"] as const) {
+  for (const tag of ["bible-sdk-passage", "bible-sk-passage", "si-passage"] as const) {
     const passage = document.createElement(tag);
     passage.bibleProvider = provider;
     passage.setAttribute("passage-id", "PSA.3.1");
@@ -58,7 +58,7 @@ it("exposes reporting only after a styled display loads, including cached displa
   }
 });
 
-it.each(["si-passage", "bible-sk-passage"] as const)("%s loads AO Lab/BSB without a key and emits provider-neutral metadata", async (tag) => {
+it.each(["bible-sdk-passage", "si-passage", "bible-sk-passage"] as const)("%s loads AO Lab/BSB without a key and emits provider-neutral metadata", async (tag) => {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "BSB", shortName: "BSB", name: "Berean Standard Bible", language: "eng", textDirection: "ltr", licenseUrl: "https://berean.bible/" },
     book: { name: "John" },
@@ -148,7 +148,7 @@ it("switches same-ID providers without reusing another provider's cached passage
   expect(passage.shadowRoot?.querySelector('[part="text"]')?.textContent).toBe("second second-default");
 });
 
-it.each(["si-passage", "bible-sk-passage"] as const)("%s prefers generic page versions over legacy defaults, while component attributes override page settings", async (tag) => {
+it.each(["bible-sdk-passage", "si-passage", "bible-sk-passage"] as const)("%s prefers generic page versions over legacy defaults, while component attributes override page settings", async (tag) => {
   const provider: BibleProvider = {
     id: "youversion", defaultVersionId: "3034",
     async getPassage(id) { return { html: id, version: { id, abbreviation: id, title: id }, attribution: "License" }; },

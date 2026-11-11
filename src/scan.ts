@@ -27,6 +27,8 @@ const SKIP_SELECTOR = [
   "si-passage-input",
   "bible-sk-passage",
   "bible-sk-passage-input",
+  "bible-sdk-passage",
+  "bible-sdk-passage-input",
   "[data-scripture-inline-ignore]",
 ].join(",");
 

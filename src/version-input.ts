@@ -2,7 +2,9 @@ import { Effect } from "effect";
 import { listBibleVersionsEffect, providerDefaults, resolveProvider, resolveProviderEffect, type BibleProvider, type BibleVersion, type ProviderOptions } from "./providers";
 
 export const VERSION_INPUT_TAG = "si-version-input";
+/** @deprecated The rebrand omitted the d in SDK. Use BIBLE_SDK_VERSION_INPUT_TAG. */
 export const BIBLE_VERSION_INPUT_TAG = "bible-sk-version-input";
+export const BIBLE_SDK_VERSION_INPUT_TAG = "bible-sdk-version-input";
 export type VersionInputDetail = { provider: string; bibleVersionId: string; bibleVersion: BibleVersion | null };
 
 const STYLES = `
@@ -321,11 +323,19 @@ export class ScriptureVersionInput extends HTMLElement {
   });
 }
 
-/** Registers <bible-sk-version-input> and <si-version-input>, sharing provider defaults. */
+/** Registers <bible-sdk-version-input>, deprecated <bible-sk-version-input>, and compatible <si-version-input>. */
 export function defineVersionInput(options: ProviderOptions = {}): void {
   Object.assign(providerDefaults, options);
   if (!customElements.get(VERSION_INPUT_TAG)) customElements.define(VERSION_INPUT_TAG, ScriptureVersionInput);
   if (!customElements.get(BIBLE_VERSION_INPUT_TAG)) customElements.define(BIBLE_VERSION_INPUT_TAG, class extends ScriptureVersionInput {});
+  if (!customElements.get(BIBLE_SDK_VERSION_INPUT_TAG)) customElements.define(BIBLE_SDK_VERSION_INPUT_TAG, class extends ScriptureVersionInput {});
 }
 
-declare global { interface HTMLElementTagNameMap { "si-version-input": ScriptureVersionInput; "bible-sk-version-input": ScriptureVersionInput; } }
+declare global {
+  interface HTMLElementTagNameMap {
+    "si-version-input": ScriptureVersionInput;
+    /** @deprecated Use bible-sdk-version-input. */
+    "bible-sk-version-input": ScriptureVersionInput;
+    "bible-sdk-version-input": ScriptureVersionInput;
+  }
+}
