@@ -1,5 +1,5 @@
 // Points the pinned CDN URLs in the docs at the current package version.
-// The release workflow runs this right after `changeset version`, so the Version Packages PR carries the bump.
+// The release workflow runs this after publishing, once jsDelivr serves the new version, and pushes the bump to main.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const { name, version } = JSON.parse(readFileSync("package.json", "utf8")) as { name: string; version: string };

@@ -48,10 +48,9 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile
+      # The docs' pinned CDN URLs stay on the published version here; the publish job moves them.
       - uses: changesets/action/version@v2.0.0
         with:
-          # Also bumps the pinned CDN URLs in the docs to the new version.
-          script: pnpm version-packages
           # The GitHub API mode pushes a temporary changesets-ghcommit-temp/* branch first.
           # Cloudflare starts a preview build for it, then cancels it when the branch is
           # deleted, which marks the commit on main as failed. The Git CLI pushes directly.
@@ -75,4 +74,37 @@ jobs:
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - uses: changesets/action/publish@v2.0.0
+      - id: changesets
+        uses: changesets/action/publish@v2.0.0
+      # Cloudflare deploys every push to main, so the docs' copy-paste CDN URLs move to the new
+      # version only after jsDelivr serves it. A push with this job's token starts no workflows.
+      - if: steps.changesets.outputs.published == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          version=$(node -p 'require("./package.json").version')
+          files="bible-sdk.js scripture-inline.js"
+          for _ in $(seq 1 30); do
+            missing=""
+            for file in $files; do
+              curl -fsS -o /dev/null "https://cdn.jsdelivr.net/npm/$name@$version/dist/$file" || missing="$missing $file"
+            done
+            [ -z "$missing" ] && break
+            # jsDelivr caches a 404 from before the version reached it, so clear it before retrying.
+            for file in $missing; do curl -fsS -o /dev/null "https://purge.jsdelivr.net/npm/$name@$version/dist/$file" || true; done
+            sleep 20
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::jsDelivr did not serve$missing for $version. Once it does, run node scripts/sync-cdn-version.ts and push the result to main."
+            exit 1
+          fi
+          node scripts/sync-cdn-version.ts
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Point CDN examples at published Bible SDK $version"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          # Main may have moved while this job ran.
+          git -c http.extraheader="$auth" pull --rebase origin main
+          git -c http.extraheader="$auth" push origin HEAD:main
