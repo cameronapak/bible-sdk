@@ -2,7 +2,7 @@
 
 Bible SDK provides a unified, DOM-free Bible data SDK with optional browser UI. The SDK discovers versions, books, and chapters and returns Scripture with attribution, source limitations, and display guidance. The reference finder and web components add framework-free passages and passage/translation inputs. Bible text comes from AO Lab's Free Use Bible API by default, with optional YouVersion Platform, fetch.bible, and server-only API.Bible adapters. The project is independent and not affiliated with YouVersion.
 
-Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bible-sdk`. New markup uses `bible-sk-passage`, `bible-sk-passage-input`, and `bible-sk-version-input`; registration functions also register their original `si-*` names. Existing tag constants, `scriptureInline()` and other JavaScript exports, attributes, `scripture-*` events, CSS names, and Effect service keys remain compatible. The old browser-script filename is included alongside `bible-sdk.js`.
+Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bible-sdk`. New markup uses `bible-sdk-passage`, `bible-sdk-passage-input`, and `bible-sdk-version-input`. During the 0.6.0 rebrand, a typo in the request was carried into the published `bible-sk-*` names without confirming the intended spelling. Those names are deprecated but remain registered alongside the original `si-*` compatibility names, with no removal scheduled. The `BIBLE_SDK_*_TAG` constants return the canonical names; all existing tag constants retain their values. `scriptureInline()` and other JavaScript exports, attributes, `scripture-*` events, CSS names, and Effect service keys remain compatible. The old browser-script filename is included alongside `bible-sdk.js`.
 
 ## Terms
 
@@ -12,7 +12,7 @@ Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bib
 - **Mode** - What a reference link does. `card` opens a Scripture card. `link` goes to route.bible.
 - **Trigger** - What opens a card: `click`, or `hover` with a mouse.
 - **Scripture card** - The popover that shows a passage next to a reference link. It renders a passage inside a shadow root.
-- **Passage** - Scripture for a verse, range, or chapter, returned as data by the SDK or displayed by `<si-passage>`.
+- **Passage** - Scripture for a verse, range, or chapter, returned as data by the SDK or displayed by `<bible-sdk-passage>`.
 - **Passage ID** - A USFM passage, such as `JHN.3.16`, `ROM.8.28-30`, or a whole chapter, `ROM.8`. Passages can't cross chapters.
 - **Bible data provider** - A source implementing the DOM-free, Effect-native `BibleDataProvider` contract. AO Lab is the key-free default; YouVersion, fetch.bible, and API.Bible are explicit choices. API.Bible accepts each application's own official client on its server, never a shared or browser-exposed private key. Its safe passage displays reach components through the application's server endpoint. IDs remain provider-specific. AO Lab uses `createAOLabProvider`, `aoLabProvider`, `/providers/ao-lab`, and the `ao-lab` input. HelloAO names remain deprecated aliases. Returned provider IDs remain `helloao`; tracing identifiers and upstream URLs also stay unchanged.
 - **Display provider** - The compatible `BibleProvider` Promise contract for safe HTML in browser components. Built-ins expose their native data/display Effects through `.effects`; custom data providers need no renderer.
@@ -20,8 +20,8 @@ Bible SDK is the new name for Scripture Inline. The package is `@faith-tools/bib
 - **Reference layout** - Where a passage shows its reference: `heading`, `citation`, `quote`, or `none`.
 - **Attribution** - The version's copyright line and the Bible provider's source credit. It always sits below the Bible text.
 - **Public app key** - The optional YouVersion Platform key. It is public and safe in page markup. The script tag's key is the page-wide default. AO Lab needs no key.
-- **Passage input** - `<si-passage-input>`, a form field that autocompletes books, chapters, and verses into a passage ID.
-- **Translation picker** - `<si-version-input>`, a form field that searches the selected provider's versions by name and language. It submits a provider-specific version ID, not a cross-provider mapping.
+- **Passage input** - `<bible-sdk-passage-input>`, a form field that autocompletes books, chapters, and verses into a passage ID.
+- **Translation picker** - `<bible-sdk-version-input>`, a form field that searches the selected provider's versions by name and language. It submits a provider-specific version ID, not a cross-provider mapping.
 - **Bible data SDK** - Two DOM-free surfaces over one Effect v4 implementation: `/data` returns Promises for async/await, and `/data/effect` returns lazy native Effects with the `BibleSource` service and Layers for composition and tests. Both provide version, book, and chapter discovery and clean Scripture text, with the same models and `ScriptureError` failures. Async consumers do not need to import or directly install Effect; it remains a runtime dependency. IDs remain provider-specific.
 - **Display instructions** - Structured rendering fields plus classified explanations returned with Scripture data. Codes identify attribution, licensing, formatting, and provider-specific HTML guidance; consumers must read the prose and terms. This is not a renderer or automatic legal-compliance engine.
 - **Version Packages PR** - The pull request the Release workflow opens to bump the version. Merging it publishes to npm.
