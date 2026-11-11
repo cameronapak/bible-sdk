@@ -16,6 +16,10 @@ export type PassageDisplay = {
   direction?: "ltr" | "rtl";
   containerAttributes?: Readonly<Record<string, string>>;
   stylesheets?: readonly { kind: "bible" | "font"; href: string }[];
+  /** Host-owned actual-view reporting. Fetching a display is not a view. */
+  reporting?: { kind: "api-bible-fums"; token: string };
+  /** Absolute refresh deadline, shared with server-side publisher metadata. */
+  cache?: { expiresAt: number };
   /** Preserved for existing YouVersion scripture-load consumers. */
   yvpBibleVersion?: unknown;
 };
@@ -411,7 +415,17 @@ export const fetchDisplayEffect = Effect.fn("scripture.fetchDisplay")(function*(
   let cache = displays.get(provider);
   if (!cache) displays.set(provider, cache = requestCache());
   const key = JSON.stringify([versionId, passageId]);
-  return yield* cache.get(key, () => provider.effects?.getPassageDisplay(versionId, passageId) ?? request("custom.getPassage", () => provider.getPassage(versionId, passageId), false));
+  const load = () => provider.effects?.getPassageDisplay(versionId, passageId) ?? request("custom.getPassage", () => provider.getPassage(versionId, passageId), false);
+  let display = yield* cache.get(key, load);
+  if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
+    yield* cache.invalidate(key);
+    display = yield* cache.get(key, load);
+    if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
+      yield* cache.invalidate(key);
+      return yield* new ScriptureError({ code: "invalid_response", message: "The provider returned an expired passage. Refresh its content and publisher metadata." });
+    }
+  }
+  return display;
 });
 
 export function fetchDisplay(provider: BibleProvider, versionId: string, passageId: string): Promise<PassageDisplay> {

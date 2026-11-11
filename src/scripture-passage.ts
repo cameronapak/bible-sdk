@@ -93,6 +93,19 @@ const STYLES = `
 :host([verse-numbers="hide"]) .fetch-bible sup[data-v] { display: none; }
 :host([red-letter="off"]) .fetch-bible .fb-wj { color: inherit; }
 :host([headings="hide"]) .fetch-bible :is(.fb-ms, .fb-ms1, .fb-ms2, .fb-ms3, .fb-ms4, .fb-mr, .fb-s, .fb-s1, .fb-s2, .fb-s3, .fb-s4, .fb-sr, .fb-r, .fb-sp, .fb-qa) { display: none; }
+/* Keep API.Bible's USX layout and use its stylesheet's defaults unless customized. */
+.scripture-bible.api-bible {
+  --ss-rem: var(--scripture-font-size, 1.125rem);
+  --ss-base-line-height: calc(var(--scripture-line-height, 1.5) * var(--ss-rem));
+  --ss-font-serif: var(--scripture-font-family, "Noto Serif", serif);
+  font-size: var(--ss-rem);
+  font-family: var(--ss-font-serif);
+  line-height: var(--scripture-line-height, 1.5);
+}
+:host([verse-numbers="hide"]) .api-bible :is(.v, .vp, .va) { display: none; }
+:host([red-letter="on"]) .api-bible .wj { color: var(--scripture-red); }
+:host([red-letter="off"]) .api-bible .wj { color: inherit; }
+:host([headings="hide"]) .api-bible :is(.s, .s1, .s2, .s3, .s4, .ms, .ms1, .ms2, .ms3, .mr, .r, .sr, .sp, .qa) { display: none; }
 /* Typography comes from --scripture-* properties, which pages set like any CSS. The fallbacks
    are bible.css's own values, except the font: Untitled Serif is YouVersion's Bible typeface,
    but bible.css defaults to Source Serif 4. */
@@ -248,6 +261,7 @@ export class ScripturePassage extends HTMLElement {
     const theme = setting === "dark" || (setting === "auto" && this.systemDark.matches) ? "dark" : "light";
     this.root.dataset.theme = theme;
     for (const el of this.root.querySelectorAll("[data-yv-sdk]")) el.setAttribute("data-yv-theme", theme);
+    for (const el of this.root.querySelectorAll(".api-bible")) el.setAttribute("data-color-mode", theme);
   }
 
   /** "heading" (default), "citation", "quote", or "none". */
@@ -387,6 +401,8 @@ export class ScripturePassage extends HTMLElement {
       this.removeAttribute("aria-busy");
       this.dispatchEvent(new CustomEvent("scripture-load", { detail: {
         provider: provider.id, bibleVersionId: versionId, passageId, bibleVersion: display.version,
+        ...(display.reporting ? { reporting: display.reporting } : {}),
+        ...(display.cache ? { cache: display.cache } : {}),
         ...(display.yvpBibleVersion ? { yvpBibleVersionId: Number(versionId), yvpBibleVersion: display.yvpBibleVersion } : {}),
       } }));
   });
