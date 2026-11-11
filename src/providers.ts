@@ -86,22 +86,86 @@ function helloaoAttribution(translation: Pick<ApiTranslation, "name" | "licenseN
   };
 }
 
-function inlineContent(content: readonly ChapterVerse["content"][number][], verseNumber?: number): string {
-  let label = verseNumber === undefined ? "" : `<sup class="scripture-verse-number">${verseNumber}</sup> `;
-  return content.map((item) => {
-    if (typeof item === "string" || "text" in item) {
-      const prefix = label;
-      label = "";
-      if (typeof item === "string") return prefix + escapeHtml(item);
-      const text = escapeHtml(item.text);
-      const words = item.wordsOfJesus ? `<span class="scripture-jesus">${text}</span>` : text;
-      // A block poetry line must carry its verse number, not push it onto a line above.
-      return item.poem !== undefined ? `<span class="scripture-poetry" style="--indent:${item.poem}">${prefix}${words}</span>` : prefix + words;
+type VersePart = ChapterVerse["content"][number];
+/** One line of a verse: prose that flows inline, or a poetry line at an indent level. */
+type VerseLine = { poem?: number; parts: VersePart[] };
+
+/**
+ * Splits a verse into lines the way AO Lab's reader does. Each poetry line is its own block,
+ * a line break or an indent change starts a new line, and a footnote never splits a line.
+ */
+function verseLines(content: readonly VersePart[]): VerseLine[] {
+  const lines: VerseLine[] = [];
+  let line: VerseLine | undefined;
+  let afterNote = false;
+  for (const part of content) {
+    if (typeof part !== "string" && "noteId" in part) {
+      // A note after a line break belongs to the line before it.
+      lines.at(-1)?.parts.push(part);
+      afterNote = true;
+      continue;
     }
-    if ("heading" in item) return `<span class="scripture-heading">${escapeHtml(item.heading)}</span>`;
-    if ("lineBreak" in item) return "<br>";
-    // Notes are not displayed, matching the YouVersion adapter.
-    return " ";
+    if (typeof part !== "string" && "lineBreak" in part) {
+      line = undefined;
+      continue;
+    }
+    const poem = typeof part !== "string" && "text" in part && part.poem ? part.poem : undefined;
+    // Poetry at the same indent continues a line only across a footnote; otherwise it is a new line.
+    const continues = line && (poem === undefined ? line.poem === undefined : line.poem === poem && afterNote);
+    if (!continues) lines.push(line = { poem, parts: [] });
+    line!.parts.push(part);
+    afterNote = false;
+  }
+  return lines;
+}
+
+// Scripts that don't separate words with spaces.
+const unspacedScript = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\u3000-\u303f\uff00-\uffef]/u;
+
+/**
+ * AO Lab stores text parts without their surrounding spaces ("him," + "“Most"), and its reader
+ * puts a space between them. Closing punctuation, dashes, and unspaced scripts join directly.
+ */
+function separator(before: string, after: string): string {
+  if (!before || !after || /[\s(\[{“‘—]$/.test(before) || /^[\s,.;:!?…)\]}”’—]/.test(after)) return "";
+  return unspacedScript.test(before.at(-1)!) || unspacedScript.test(after[0]!) ? "" : " ";
+}
+
+const partText = (part: VersePart) => (typeof part === "string" ? part : "text" in part ? part.text : undefined);
+
+/** Joins a line's text with AO Lab's spacing. `wrap` renders each part, such as escaping it for HTML. */
+function joinParts(parts: readonly VersePart[], wrap: (part: VersePart, text: string) => string = (_, text) => text): string {
+  let joined = "";
+  let previous = "";
+  for (const part of parts) {
+    const text = partText(part);
+    if (text === undefined) {
+      // Notes are not displayed, matching the YouVersion adapter.
+      if (typeof part !== "string" && "heading" in part) joined += wrap(part, part.heading);
+      continue;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) continue;
+    joined += separator(previous, trimmed) + wrap(part, trimmed);
+    previous = trimmed;
+  }
+  return joined;
+}
+
+function partHtml(part: VersePart, text: string): string {
+  if (typeof part !== "string" && "heading" in part) return `<span class="scripture-heading">${escapeHtml(text)}</span>`;
+  const html = escapeHtml(text);
+  return typeof part !== "string" && "wordsOfJesus" in part && part.wordsOfJesus ? `<span class="scripture-jesus">${html}</span>` : html;
+}
+
+/** A verse's lines as HTML. Poetry lines are blocks, so prose lines need a break only between each other. */
+function verseHtml(content: readonly VersePart[], verseNumber: number): string {
+  const label = `<sup class="scripture-verse-number">${verseNumber}</sup> `;
+  return verseLines(content).map((line, index, lines) => {
+    const html = (index === 0 ? label : "") + joinParts(line.parts, partHtml);
+    // A poetry line carries its own verse number, so the number hangs in the line's indent.
+    if (line.poem !== undefined) return `<span class="scripture-poetry" style="--indent:${line.poem}">${html}</span>`;
+    return index > 0 && lines[index - 1]!.poem === undefined ? `<br>${html}` : html;
   }).join("");
 }
 
@@ -153,36 +217,25 @@ export function createAOLabProvider() {
         first,
         last,
       );
+      // A Psalm title or paragraph break belongs to the verse after it, so it shows only with that verse.
       let text = "";
-      let selected = false;
+      let titles: string[] = [];
+      let paragraph = false;
+      let endsInPoetry = false;
       for (const item of result.chapter.content) {
-        if (item.type === "verse") {
-          selected = first === undefined || (item.number >= first && item.number <= last!);
-          if (!selected) continue;
-          if (text && !/\s$/.test(text)) text += " ";
-          let poetry: number | undefined;
-          for (const [index, part] of item.content.entries()) {
-            if (typeof part === "string" || "text" in part) {
-              const nextPoetry = typeof part === "string" ? undefined : part.poem;
-              const previous = item.content[index - 1];
-              const continuesAfterNote = previous !== undefined && typeof previous !== "string" && "noteId" in previous
-                && poetry !== undefined && nextPoetry === poetry;
-              if ((poetry !== undefined || nextPoetry !== undefined) && !continuesAfterNote && text && !text.endsWith("\n")) text = text.trimEnd() + "\n";
-              poetry = nextPoetry;
-            }
-            if (typeof part === "string") text += part;
-            else if ("text" in part) {
-              text += part.text;
-            } else if ("lineBreak" in part) text = text.trimEnd() + "\n";
-            else if ("noteId" in part) {
-              const next = item.content.slice(index + 1).find((part) => typeof part === "string" || "text" in part);
-              const following = typeof next === "string" ? next : next && "text" in next ? next.text : "";
-              if (text && !/\s$/.test(text) && following && !/^[\s,.;:!?…\)\]”’]/.test(following)) text += " ";
-            }
+        if (item.type === "hebrew_subtitle") titles.push(joinParts(item.content));
+        else if (item.type === "line_break") paragraph = true;
+        else if (item.type === "verse") {
+          const lines = verseLines(item.content);
+          if ((first === undefined || (item.number >= first && item.number <= last!)) && lines.length) {
+            const verse = lines.map((line) => joinParts(line.parts)).join("\n");
+            if (text) text += paragraph ? "\n\n" : endsInPoetry || lines[0]!.poem !== undefined ? "\n" : separator(text, verse);
+            text += titles.map((title) => `${title}\n\n`).join("") + verse;
+            endsInPoetry = lines.at(-1)!.poem !== undefined;
           }
-        } else if (item.type === "hebrew_subtitle" && (first === undefined || first === 1)) {
-          text += item.content.map((part) => (typeof part === "string" ? part : "text" in part ? part.text : "lineBreak" in part ? "\n" : "")).join("") + "\n\n";
-        } else if (item.type === "line_break" && selected) text = text.trimEnd() + "\n\n";
+          titles = [];
+          paragraph = false;
+        }
       }
       const translation = result.translation;
       return {
@@ -228,20 +281,19 @@ export function createAOLabProvider() {
       const first = range.first ?? 1;
       const last = range.last ?? finalVerse;
 
-      // Keep a section heading only when its following verse is selected. Never include
-      // text or headings belonging to the next section after the requested range.
-      let heading = "";
+      // Headings, Psalm titles, and paragraph breaks belong to the verse after them, in chapter
+      // order, as in AO Lab's reader. Each shows only when that verse is selected, so a range
+      // never includes the next section's heading. A paragraph break never leads the passage.
+      let before = "";
       let html = "";
-      let selected = false;
       for (const item of result.chapter.content) {
-        if (item.type === "heading") heading += `<h3 class="scripture-heading">${escapeHtml(item.content.join(" "))}</h3>`;
+        if (item.type === "heading") before += `<h3 class="scripture-heading">${joinParts(item.content, partHtml)}</h3>`;
+        else if (item.type === "hebrew_subtitle") before += `<p class="scripture-subtitle">${joinParts(item.content, partHtml)}</p>`;
+        else if (item.type === "line_break") before += html ? `<div class="scripture-break"></div>` : "";
         else if (item.type === "verse") {
-          selected = item.number >= first && item.number <= last;
-          if (selected) html += `${heading}<span class="scripture-verse">${inlineContent(item.content, item.number)}</span> `;
-          heading = "";
-        } else if (item.type === "hebrew_subtitle" && first === 1) {
-          html += `<p class="scripture-subtitle">${inlineContent(item.content)}</p>`;
-        } else if (item.type === "line_break" && selected) html += "<br>";
+          if (item.number >= first && item.number <= last) html += `${before}<span class="scripture-verse">${verseHtml(item.content, item.number)}</span> `;
+          before = "";
+        }
       }
       const translation = result.translation;
       const attribution = helloaoAttribution(translation);

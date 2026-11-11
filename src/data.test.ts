@@ -106,7 +106,7 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
       { type: "hebrew_subtitle", content: ["Scriptural title"] },
       { type: "verse", number: 1, content: ["Outside before"] },
       { type: "heading", content: ["Editorial heading"] },
-      { type: "verse", number: 2, content: ["Word", { noteId: 1 }, "next", { lineBreak: true }, { text: "Poetry", poem: 1 }, "Selah", { text: "Second line", poem: 2 }, { noteId: 3 }, "After poem. ", "Cl", { text: "ose" }, "d."] },
+      { type: "verse", number: 2, content: ["Word", { noteId: 1 }, "next", { lineBreak: true }, { text: "Poetry", poem: 1 }, "Selah", { text: "Second line", poem: 2 }, { noteId: 3 }, "After poem. Jesus said,", { text: "“Follow me.”", wordsOfJesus: true }] },
       { type: "line_break" },
       { type: "verse", number: 3, content: ["Last selected", { noteId: 2 }, "."] },
       { type: "verse", number: 4, content: ["Outside after"] },
@@ -114,7 +114,7 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
   } as ApiTranslationBookChapter);
   const client = createScriptureClient();
   const passage = yield* client.getPassage({ passageId: "JHN.3.2-3" });
-  expect(passage.text).toBe("Word next\nPoetry\nSelah\nSecond line\nAfter poem. Closed.\n\nLast selected.");
+  expect(passage.text).toBe("Word next\nPoetry\nSelah\nSecond line\nAfter poem. Jesus said, “Follow me.”\n\nLast selected.");
   expect(passage).toMatchObject({ provider: "helloao", reference: "John 3:2-3", version: { id: "BSB", sourceLanguage: "heb" }, numbering: "unknown" });
   expect(passage.attribution.text).toBe("Copyright notice · Source: AO Lab Free Use Bible API");
   expect(passage.licenses).toEqual([{ url: "https://example.com/license" }]);
@@ -124,7 +124,7 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
   expect(yield* Effect.flip(client.getPassage({ passageId: "JHN.3.4-5" }))).toMatchObject({ code: "unavailable" });
 }));
 
-it.effect("keeps poetry on one line across footnotes without merging separate lines at the same indent", () => Effect.gen(function*() {
+it.effect("keeps poetry on one line across footnotes, and spaces words only in scripts that use spaces", () => Effect.gen(function*() {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
     translation: { id: "BSB", name: "Berean Standard Bible", language: "eng", licenseUrl: "https://berean.bible/" },
     book: { name: "Psalms" },
@@ -133,10 +133,13 @@ it.effect("keeps poetry on one line across footnotes without merging separate li
       { text: "are those whose way is blameless,", poem: 1 },
       { text: "who walk in the Law of the LORD.", poem: 2 },
       { text: "A separate line at the same indent.", poem: 2 },
+    ] }, { type: "verse", number: 2, content: [
+      "耶稣回答说：", { text: "“我告诉你：人若不重生", wordsOfJesus: true }, { noteId: 1 }, { text: "，就不能见神的国。”", wordsOfJesus: true },
     ] }] },
   } as ApiTranslationBookChapter);
   const passage = yield* createScriptureClient().getPassage({ passageId: "PSA.119.1" });
   expect(passage.text).toBe("Blessed are those whose way is blameless,\nwho walk in the Law of the LORD.\nA separate line at the same indent.");
+  expect((yield* createScriptureClient().getPassage({ passageId: "PSA.119.2" })).text).toBe("耶稣回答说：“我告诉你：人若不重生，就不能见神的国。”");
 }));
 
 it.effect("discovers AO Lab and YouVersion books and chapters through the same public API", () => Effect.gen(function*() {

@@ -25,7 +25,7 @@ function chapter() {
       { type: "heading", content: ["Selected section"] },
       { type: "verse", number: 2, content: ["One and only", { noteId: 1 }, "Son", { text: "<script>alert(1)</script>", wordsOfJesus: true }] },
       { type: "line_break" },
-      { type: "verse", number: 3, content: [{ text: "A poem", poem: 2 }, { lineBreak: true }, "Last selected"] },
+      { type: "verse", number: 3, content: [{ text: "A poem", poem: 2 }, { noteId: 2 }, { text: "continues", poem: 2 }, { lineBreak: true }, "Last selected"] },
       { type: "heading", content: ["Outside heading"] },
       { type: "verse", number: 4, content: ["Outside after"] },
     ] },
@@ -42,14 +42,16 @@ it("renders only the inclusive range, escaping text and preserving formatting, s
   const display = await provider.getPassage("test", "JHN.3.2-3");
   const section = document.createElement("section");
   section.innerHTML = display.html;
-  expect(section.textContent).toContain("One and only Son<script>alert(1)</script>");
+  expect(section.textContent).toContain("One and only Son <script>alert(1)</script>");
   expect(section.querySelector("script")).toBeNull();
   expect([...section.querySelectorAll("sup")].map((n) => n.textContent)).toEqual(["2", "3"]);
   expect(section.querySelector("h3")?.textContent).toBe("Selected section");
   expect(section.textContent).not.toMatch(/Outside|A psalm/);
   expect(section.querySelector(".scripture-jesus")?.textContent).toBe("<script>alert(1)</script>");
-  expect(section.querySelector(".scripture-poetry")?.textContent).toBe("3 A poem");
-  expect(section.querySelectorAll("br")).toHaveLength(2);
+  // A footnote does not split a poetry line, and prose after poetry starts its own line.
+  expect(section.querySelector(".scripture-poetry")?.textContent).toBe("3 A poem continues");
+  expect(section.querySelector(".scripture-poetry")?.nextSibling?.textContent).toBe("Last selected");
+  expect(section.querySelectorAll(".scripture-break")).toHaveLength(1);
   expect(display.attribution).toBe("Required copyright notice · Source: AO Lab Free Use Bible API");
   const attribution = document.createElement("p");
   attribution.innerHTML = display.attributionHtml!;
@@ -65,7 +67,8 @@ it("supports single verses and whole chapters without including the next section
   expect(single.html).toContain("Last selected");
   expect(single.html).not.toMatch(/Outside|Selected section|One and only/);
   const whole = await helloaoProvider.getPassage("test", "JHN.3");
-  expect(whole.html).toContain("A psalm");
+  // Headings and Psalm titles keep their chapter order.
+  expect(whole.html.indexOf("First section")).toBeLessThan(whole.html.indexOf("A psalm"));
   expect(whole.html).toContain("Outside before");
   expect(whole.html).toContain("Outside after");
 });
