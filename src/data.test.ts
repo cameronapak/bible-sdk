@@ -66,14 +66,14 @@ it.effect("uses YouVersion's current-year day number across leap day without DST
   vi.mocked(youversion.getPassage).mockResolvedValue({ id: "JHN.3.16", reference: "John 3:16", content: "Exact Scripture." });
   vi.mocked(youversion.getVersion).mockResolvedValue({ id: 3034, localized_title: "BSB", localized_abbreviation: "BSB", language_tag: "en", copyright: "Required notice" } as Awaited<ReturnType<typeof youversion.getVersion>>);
   for (const [date, day] of [["2028-01-01", 1], ["2028-02-29", 60], ["2028-03-01", 61], ["2028-12-31", 366]] as const) {
-    vi.mocked(youversion.getVOTD).mockImplementation(async (_client, requestedDay) => ({ day: requestedDay, passage_id: "JHN.3.16" }));
+    vi.mocked(youversion.getVOTD).mockImplementation(async (_client, requestedDay) => ({ day: requestedDay, passage_id: "JHN.3.16", image_id: null }));
     const daily = yield* client.getVerseOfTheDay({ date });
     expect(daily.calendarSource).toEqual({ provider: "youversion", sourceUrl: `https://api.youversion.com/v1/verse-of-the-days/${day}` });
     expect(daily.passage.text).toBe("Exact Scripture.");
     expect(daily.passage.instructions).toContainEqual(expect.objectContaining({ code: "youversion-terms" }));
   }
   expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2027-12-31" }))).toMatchObject({ code: "unsupported" });
-  vi.mocked(youversion.getVOTD).mockResolvedValue({ day: 2, passage_id: "JHN.3.16" });
+  vi.mocked(youversion.getVOTD).mockResolvedValue({ day: 2, passage_id: "JHN.3.16", image_id: null });
   expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2028-01-01" }))).toMatchObject({ code: "invalid_response" });
 }));
 
