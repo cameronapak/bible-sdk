@@ -75,7 +75,7 @@
           <a href="#data-sdk">Get Bible data</a>
           <a href="#getting-started">Add browser components</a>
         </p>
-        <p id="safeguard-release"><strong>Release availability:</strong> The cache and attribution safeguards documented here were added after 0.10.1. They are not included in 0.10.1 or its pinned CDN scripts. Until a newer release containing these changes is published and installed, do not rely on full shared-cache purging, mounted expiry/detach cleanup, zero-TTL browser-cache bypass, or the expanded attribution links.</p>
+        <p id="safeguard-release"><strong>Version requirement:</strong> Use 0.10.2 or later for the cache and attribution safeguards documented here. Version 0.10.1 and older do not include full shared-cache purging, mounted expiry/detach cleanup, zero-TTL browser-cache bypass, or the expanded attribution links. Upgrade installed packages and pinned scripts before relying on these safeguards.</p>
       </header>
 
       <section class="stack" id="data-sdk">
@@ -311,7 +311,7 @@ defineScripturePassage({ provider });
             </sensible-code>
             <p>Add authentication, rate limits, edition/access controls, and privacy-aware FUMS integration before exposing this route. The snippet does not implement these controls: an unrestricted endpoint can create an unauthorized shared-key/content proxy. Ordinary app-owned backends are supported, not a substitute Bible API or extracted corpus. The translation picker can use this provider through <code>defineVersionInput({ provider })</code>.</p>
             <p><code>copyrightUrl</code> is required for display, not plain-text data access. Every quotation page gets a visible link. Populate that page with sanitized <code>publisher.copyrightHtml</code> and <code>publisher.infoHtml</code>, the full translation name/abbreviation, the exact current dashboard/Appendix A citation, and a clickable rights-holder link. Raw metadata alone does not guarantee a complete notice. Applicable direct publisher formatting/citation agreements take precedence; resolve conflicts with API.Bible's remaining minimum requirements before use.</p>
-            <p>The following component lifecycle safeguards require a release containing the post-0.10.1 changes, not the pinned 0.10.1 script. See <a href="#safeguard-release">release availability</a>.</p>
+            <p>The following component lifecycle safeguards require 0.10.2 or later. See the <a href="#safeguard-release">version requirement</a>.</p>
             <p><code>scripture-load.detail.reporting</code> carries the FUMS token; <code>detail.cache.expiresAt</code> is the absolute refresh deadline. The component removes expired mounted text before requesting a replacement; expired replacement data causes an error, not stale Scripture. The host owns other retained copies and earlier revocations. <code>client.clearCache()</code> removes mounted passages sharing that browser provider without refetching; a server purge cannot notify a different browser realm.</p>
             <p>Initialize the <a href="https://care.api.bible/article/417-understanding-fums">official FUMS tracker</a> in your browser:</p>
             <sensible-code language="html" data-wrap="true">
