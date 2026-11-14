@@ -147,6 +147,7 @@ export function createFetchBibleProvider(options: FetchBibleOptions): BibleProvi
       const data = yield* effects.getPassageData(versionId, passageId);
       const { book, chapter, first, last } = yield* passageRange(passageId);
       const contents = yield* htmlBook(versionId, book.toLowerCase());
+      const { item } = yield* resource(versionId);
       const html = first === undefined ? contents.get_chapter(chapter, { attribute: false }) : contents.get_passage(chapter, first, chapter, last!, { attribute: false });
       return {
         html: sanitizeHtml(html, {
@@ -156,7 +157,8 @@ export function createFetchBibleProvider(options: FetchBibleOptions): BibleProvi
           exclusiveFilter: (frame) => frame.attribs.class?.split(/\s+/).includes("fb-note") || false,
         }),
         version: data.version, attribution: data.attribution.text,
-        attributionHtml: `${attributionLink(data.attribution.text.replace(" · Source: fetch.bible", ""), data.licenses[0]?.url || "")} · Source: ${attributionLink("fetch.bible", "https://fetch.bible/")}`,
+        attributionHtml: `${sanitizeHtml(contents.get_attribution(item.licenses[0]), { allowedTags: ["a"], allowedAttributes: { a: ["href"] }, allowedSchemes: ["http", "https"] }).trim()} · Source: ${attributionLink("fetch.bible", "https://fetch.bible/")}`,
+        instructions: data.instructions, licenses: data.licenses,
         direction: data.display.direction,
         containerAttributes: { ...nativeHtml.containerAttributes, lang: data.display.language || "" },
         stylesheets: nativeHtml.stylesheets,

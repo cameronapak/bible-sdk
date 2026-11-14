@@ -43,7 +43,7 @@ export function textInstructions(): DisplayInstruction[] {
   return [
     { code: "display-attribution", level: "required", appliesTo: "all", text: "Display attribution.text after the passage, separately from Scripture. Preserve its wording and supplied source and license links." },
     { code: "preserve-scripture", level: "required", appliesTo: "text", text: "Render text as text, not HTML. Preserve wording, punctuation, meaningful line and paragraph breaks, and display.direction when supplied. Do not add notes or headings to the Scripture text." },
-    { code: "verify-license", level: "required", appliesTo: "all", text: "Check the selected translation's license and provider terms for your intended use. Missing metadata is not permission for commercial use, redistribution, modifications, or offline storage." },
+    { code: "verify-license", level: "required", appliesTo: "all", text: "Review the selected edition's license and provider terms before retrieving text for your intended use, including runtime AI prompts, training, commercial use, redistribution, modifications, and storage. Returned instructions preserve obligations; they do not authorize text already sent to a model, logs, or storage. Missing metadata is not permission." },
     { code: "plain-text-limits", level: "notice", appliesTo: "text", text: "Plain text omits verse numbers, editorial headings, notes, and rich formatting. It is not a lossless representation of the source edition." },
   ];
 }
@@ -66,5 +66,45 @@ export function requestCache(timeToLive: Duration.Input = Duration.infinity) {
     },
     invalidate: (key: string) => Cache.invalidate(cache, key),
     clear: Cache.invalidateAll(cache),
+  };
+}
+
+type CacheOwner = {
+  readonly cacheTimeToLive?: Duration.Input;
+  readonly effects?: { readonly cacheTimeToLive?: Duration.Input };
+};
+const providerCaches = new WeakMap<CacheOwner, ReturnType<typeof makeProviderCache>>();
+
+/** Data and browser facades share discovery, invalidation, and provider identity. */
+export function providerCache(provider: CacheOwner) {
+  const owner = provider.effects ?? provider;
+  let cache = providerCaches.get(owner);
+  if (!cache) providerCaches.set(owner, cache = makeProviderCache(owner.cacheTimeToLive));
+  return cache;
+}
+
+function makeProviderCache(timeToLive?: Duration.Input) {
+  const cache = requestCache(timeToLive);
+  const listeners = new Set<() => void>();
+  let generation = 0;
+  return {
+    timeToLive: Duration.toMillis(timeToLive ?? Duration.infinity),
+    get<T>(key: string, load: () => Effect.Effect<T, ScriptureError>) {
+      return Effect.gen(function*() {
+        const started = generation;
+        const value = yield* cache.get(key, load);
+        if (started !== generation) return yield* new ScriptureError({ code: "unavailable", message: "Bible content was cleared while loading. Request it again after reviewing access." });
+        return value;
+      });
+    },
+    invalidate: cache.invalidate,
+    onClear: (listener: () => void) => Effect.acquireRelease(
+      Effect.sync(() => { listeners.add(listener); }),
+      () => Effect.sync(() => { listeners.delete(listener); }),
+    ),
+    clear: Effect.sync(() => {
+      generation += 1;
+      for (const listener of listeners) listener();
+    }).pipe(Effect.andThen(cache.clear)),
   };
 }

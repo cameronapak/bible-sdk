@@ -102,7 +102,7 @@ export type VerseOfTheDayOptions = {
 export interface BibleDataProvider {
   readonly id: string;
   readonly defaultVersionId: string;
-  /** Discovery cache lifetime. Omitted preserves the existing unbounded lifetime. */
+  /** Facade discovery/display reuse lifetime. Omitted preserves unbounded reuse. */
   readonly cacheTimeToLive?: Duration.Input;
   listVersions(): Effect.Effect<BibleVersion[], ScriptureError>;
   listBooks(versionId: string): Effect.Effect<BibleBook[], ScriptureError>;

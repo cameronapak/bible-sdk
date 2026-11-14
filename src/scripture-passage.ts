@@ -1,5 +1,7 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { fetchDisplayEffect, resolveProvider, resolveProviderEffect, providerDefaults as defaults, type BibleProvider, type PassageDisplay, type ProviderOptions } from "./providers";
+import { providerCache } from "./data-helpers";
+import { ScriptureError } from "./data-types";
 import { listen, nextFrame, waitForEvent } from "./dom-runtime";
 import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
@@ -212,6 +214,8 @@ export class ScripturePassage extends HTMLElement {
   private cancelLoad?: () => void;
   private cancelTheme?: () => void;
   private cancelAnimation?: () => void;
+  private cancelExpiry?: () => void;
+  private cancelCache?: () => void;
   private readonly systemDark = matchMedia("(prefers-color-scheme: dark)");
   private readonly onSystemTheme = () => this.applyTheme();
   /** Holds everything the element shows, inside its shadow root. */
@@ -227,7 +231,11 @@ export class ScripturePassage extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.cancelTheme = Effect.runCallback(listen(this.systemDark, "change", this.onSystemTheme).pipe(Effect.andThen(Effect.never), Effect.scoped));
+    this.cancelTheme = Effect.runCallback(Effect.all([
+      listen(this.systemDark, "change", this.onSystemTheme),
+      listen(this.ownerDocument, "visibilitychange", () => this.refreshExpired()),
+      listen(this.ownerDocument.defaultView!, "pageshow", () => this.refreshExpired()),
+    ]).pipe(Effect.andThen(Effect.never), Effect.scoped));
     // Show the loader now, not a microtask later, so whoever lays us out measures it.
     if (!this.root.childElementCount) this.showLoading();
     this.scheduleLoad();
@@ -238,10 +246,15 @@ export class ScripturePassage extends HTMLElement {
     this.cancelAnimation?.();
     this.generation += 1;
     this.cancelLoad?.();
+    this.cancelExpiry?.();
+    this.cancelCache?.();
+    this.loaded = null;
+    this.root.replaceChildren();
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
     if (oldValue === newValue || !this.isConnected) return;
+    if (this.refreshExpired()) return;
     if (name === "theme") this.applyTheme();
     else if (name === "reference" || name === "direction") this.relayout();
     else this.scheduleLoad();
@@ -251,6 +264,8 @@ export class ScripturePassage extends HTMLElement {
     this.generation += 1;
     this.cancelLoad?.();
     this.cancelAnimation?.();
+    this.cancelExpiry?.();
+    this.cancelCache?.();
     if (this.scheduled) return;
     this.scheduled = true;
     queueMicrotask(() => {
@@ -263,6 +278,16 @@ export class ScripturePassage extends HTMLElement {
         Effect.scoped,
       ));
     });
+  }
+
+  /** Never keep expired Scripture visible while a replacement loads or fails. */
+  private refreshExpired(): boolean {
+    if (!this.loaded?.display.cache || this.loaded.display.cache.expiresAt > Date.now()) return false;
+    this.loaded = null;
+    this.root.style.minHeight = `${this.root.getBoundingClientRect().height}px`;
+    this.showLoading();
+    this.scheduleLoad();
+    return true;
   }
 
   private applyTheme(): void {
@@ -314,7 +339,7 @@ export class ScripturePassage extends HTMLElement {
     if (display.yvpBibleVersion) citation.setAttribute("data-yv-sdk", "");
     citation.append(reference, " ", el("span", "scripture-version", "version", display.version.abbreviation));
 
-    // The attribution always shows, always below the text. It is a license requirement.
+    // SDK display policy keeps attribution visible; exact legal duties vary by edition.
     const attribution = el("p", "scripture-attribution", "attribution");
     if (display.yvpBibleVersion) attribution.setAttribute("data-yv-sdk", "");
     const attributionText = doc.createElement("bdi");
@@ -377,6 +402,15 @@ export class ScripturePassage extends HTMLElement {
         yvpPublicAppKey: this.getAttribute("yvp-public-app-key")?.trim() || defaults.yvpPublicAppKey,
         yvpApiHost: this.getAttribute("yvp-api-host") || defaults.yvpApiHost,
       });
+      this.cancelCache = Effect.runCallback(providerCache(provider).onClear(() => {
+        this.generation += 1;
+        this.cancelLoad?.();
+        this.cancelExpiry?.();
+        this.cancelAnimation?.();
+        this.loaded = null;
+        this.root.style.minHeight = `${this.root.getBoundingClientRect().height}px`;
+        this.showError("Bible text was cleared. Reload the passage after reviewing access.");
+      }).pipe(Effect.andThen(Effect.never), Effect.scoped));
       const pageVersion = provider === resolveProvider(defaults)
         ? defaults.bibleVersionId ?? (provider.id === "youversion" ? defaults.yvpBibleVersionId?.toString() : undefined)
         : undefined;
@@ -402,10 +436,23 @@ export class ScripturePassage extends HTMLElement {
       void stage.offsetHeight;
       yield* Effect.promise(() => this.ownerDocument.fonts.ready).pipe(Effect.timeoutOrElse({ duration: "3 seconds", orElse: () => Effect.void }));
       if (!this.isConnected || generation !== this.generation) return;
+      if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
+        return yield* new ScriptureError({ code: "unavailable", message: "The passage expired before it could be displayed. Request a fresh display." });
+      }
 
       const from = this.offsetHeight;
       this.root.replaceChildren(...parts);
+      this.root.style.minHeight = "";
       this.loaded = { display, passageId };
+      if (display.cache) this.cancelExpiry = Effect.runCallback(Effect.gen(function*(this: ScripturePassage) {
+        for (;;) {
+          const remaining = display.cache!.expiresAt - (yield* Clock.currentTimeMillis);
+          if (remaining <= 0) break;
+          // Bound native timers and recheck early wakeups instead of extending the deadline.
+          yield* Effect.sleep(Math.min(remaining, 86_400_000));
+        }
+        if (this.isConnected && generation === this.generation) this.refreshExpired();
+      }.bind(this)));
       this.applyTheme();
       if (loaderPainted) this.growFrom(from);
       this.removeAttribute("aria-busy");

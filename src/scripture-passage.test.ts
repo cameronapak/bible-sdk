@@ -3,6 +3,7 @@ import { BIBLE_CSS_STYLESHEET_URL } from "@youversion/platform-core";
 import { afterEach, expect, it, vi } from "vitest";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
 import type { BibleProvider } from "./providers";
+import { createScriptureClient } from "./data";
 
 // jsdom has no matchMedia, which the passage module reads when it loads.
 window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
@@ -193,6 +194,98 @@ it("discards late results after a provider change and retries rejected requests"
   finish({ html: "Stale text", version: { id: "old", abbreviation: "O", title: "Old" }, attribution: "Old license" });
   await new Promise((resolve) => setTimeout(resolve));
   expect(passage.shadowRoot?.querySelector('[part="text"]')?.textContent).toBe("Current text");
+});
+
+it("removes expired mounted text before refreshing and never restores a stale replacement on layout changes", async () => {
+  const expiresAt = Date.now() + 180;
+  let finish!: (value: Awaited<ReturnType<BibleProvider["getPassage"]>>) => void;
+  let first = true;
+  const display = { html: "Expiring text", version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Old notice", cache: { expiresAt } };
+  const provider: BibleProvider = { id: "expiry", defaultVersionId: "edition", async getPassage() {
+    if (first) { first = false; return display; }
+    return new Promise((resolve) => { finish = resolve; });
+  } };
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = provider;
+  passage.setAttribute("passage-id", "JHN.3.16");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  expect(passage.shadowRoot!.textContent).toContain("Expiring text");
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  expect(passage.shadowRoot!.querySelector('[part="text"]')).toBeNull();
+  expect(passage.shadowRoot!.querySelector('[part="loader"]')).not.toBeNull();
+  const failed = nextEvent(passage, "scripture-error");
+  // Neither the expired host response nor its retry may bring the old text back.
+  provider.getPassage = async () => display;
+  finish(display);
+  await failed;
+  passage.setAttribute("reference", "quote");
+  expect(passage.shadowRoot!.querySelector('[role="alert"]')).not.toBeNull();
+  expect(passage.shadowRoot!.textContent).not.toContain("Expiring text");
+});
+
+it("purges mounted zero-TTL displays without refetching and drops detached content before fresh reconnection", async () => {
+  let text = "Original active text";
+  let requests = 0;
+  const provider: BibleProvider = { id: "uncached", defaultVersionId: "edition", cacheTimeToLive: 0, async getPassage() {
+    requests += 1;
+    return { html: text, version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" };
+  } };
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = provider;
+  passage.setAttribute("passage-id", "JHN.3.16");
+  let loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  await createScriptureClient({ provider }).clearCache();
+  expect(requests).toBe(1);
+  passage.setAttribute("reference", "none");
+  expect(passage.shadowRoot!.textContent).not.toContain("Original active text");
+  expect(passage.shadowRoot!.querySelector('[role="alert"]')?.textContent).toContain("cleared");
+  text = "New authorized text";
+  passage.remove();
+  expect(passage.shadowRoot!.querySelector(".scripture-root")!.textContent).toBe("");
+  loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  expect(passage.shadowRoot!.querySelector('[part="text"]')?.textContent).toBe(text);
+  passage.remove();
+  expect(passage.shadowRoot!.querySelector(".scripture-root")!.textContent).toBe("");
+  text = "Fresh after detach";
+  loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  expect(passage.shadowRoot!.querySelector('[part="text"]')?.textContent).toBe(text);
+  expect(requests).toBe(3);
+});
+
+it("discards pending staged zero-TTL text on detach and reconnects with a fresh display", async () => {
+  let finishFonts!: () => void;
+  Object.assign(document.fonts, { ready: new Promise<void>((resolve) => { finishFonts = resolve; }) });
+  let text = "Withdrawn staged text";
+  const provider: BibleProvider = { id: "staged", defaultVersionId: "edition", cacheTimeToLive: 0, async getPassage() {
+    return { html: text, version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" };
+  } };
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = provider;
+  passage.setAttribute("passage-id", "JHN.3.16");
+  try {
+    document.body.append(passage);
+    await vi.waitFor(() => expect(passage.shadowRoot!.querySelector('.scripture-stage')?.textContent).toContain(text));
+    passage.remove();
+    expect(passage.shadowRoot!.querySelector('.scripture-root')!.textContent).toBe("");
+    finishFonts();
+    text = "Fresh after staged detach";
+    const loaded = nextEvent(passage);
+    document.body.append(passage);
+    await loaded;
+    expect(passage.shadowRoot!.querySelector('[part="text"]')?.textContent).toBe(text);
+    expect(passage.shadowRoot!.textContent).not.toContain("Withdrawn staged text");
+  } finally {
+    finishFonts();
+    Object.assign(document.fonts, { ready: Promise.resolve() });
+  }
 });
 
 it("copies every token bible.css declares on :root, :host, with the same default", async (context) => {

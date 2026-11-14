@@ -3,8 +3,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
 import { Effect } from "effect";
 import * as youversion from "@youversion/platform-core";
-import { helloaoProvider, createHelloAOProvider, createYouVersionProvider, listBibleVersions, resolveProvider, type BibleProvider } from "./providers";
+import { helloaoProvider, createHelloAOProvider, createYouVersionProvider, fetchDisplay, listBibleVersions, resolveProvider, type BibleProvider } from "./providers";
 import { aoLabProvider, createAOLabProvider } from "./providers/ao-lab";
+import { createScriptureClient } from "./data";
 
 vi.mock("@youversion/platform-core", async (importOriginal) => ({
   ...await importOriginal<typeof youversion>(), getVersions: vi.fn(), getPassageDisplay: vi.fn(),
@@ -15,7 +16,7 @@ afterEach(async () => { vi.restoreAllMocks(); await Effect.runPromise(helloaoPro
 // Small chapter with distinct boundary verses and formatting, not a second renderer.
 function chapter() {
   vi.spyOn(FreeUseBibleApi.prototype, "getTranslationBookChapter").mockResolvedValue({
-    translation: { id: "test", name: "Test Bible", shortName: "TB", language: "heb", textDirection: "rtl", licenseNotice: "Required copyright notice", licenseUrl: "https://example.com/license" },
+    translation: { id: "test", name: "Test Bible", shortName: "TB", language: "heb", textDirection: "rtl", licenseNotice: "Required copyright notice", licenseUrl: "https://example.com/license", website: "https://example.com/owner" },
     book: { name: "John" },
     numberOfVerses: 4,
     chapter: { number: 3, content: [
@@ -52,11 +53,15 @@ it("renders only the inclusive range, escaping text and preserving formatting, s
   expect(section.querySelector(".scripture-poetry")?.textContent).toBe("3 A poem continues");
   expect(section.querySelector(".scripture-poetry")?.nextSibling?.textContent).toBe("Last selected");
   expect(section.querySelectorAll(".scripture-break")).toHaveLength(1);
-  expect(display.attribution).toBe("Required copyright notice · Source: AO Lab Free Use Bible API");
+  expect(display.attribution).toBe("Required copyright notice · Translation website · Source: AO Lab Free Use Bible API");
   const attribution = document.createElement("p");
   attribution.innerHTML = display.attributionHtml!;
   expect(attribution.textContent).toBe(display.attribution);
-  expect(attribution.querySelector("a")?.href).toBe("https://bible.helloao.org/docs/");
+  expect([...attribution.querySelectorAll("a")].map((a) => [a.textContent, a.href])).toEqual([
+    ["Required copyright notice", "https://example.com/license"],
+    ["Translation website", "https://example.com/owner"],
+    ["AO Lab Free Use Bible API", "https://bible.helloao.org/docs/"],
+  ]);
   expect(display.direction).toBe("rtl");
   expect(display.version).toEqual({ id: "test", abbreviation: "TB", title: "Test Bible" });
 });
@@ -164,4 +169,61 @@ it("keeps catalogs scoped to provider identity and lets failed loads retry", asy
   await expect(listBibleVersions({ provider: first })).rejects.toMatchObject({ code: "network", cause: new Error("Offline") });
   expect((await listBibleVersions({ provider: first }))[0].id).toBe("a");
   expect((await listBibleVersions({ provider: second }))[0].id).toBe("b");
+});
+
+it("expires browser catalogs/displays and clears shared client discovery and displays by provider identity", async () => {
+  let title = "First";
+  const provider: BibleProvider = {
+    id: "custom", defaultVersionId: "edition", cacheTimeToLive: "40 millis",
+    async listVersions() { return [{ id: "edition", title, abbreviation: "TB" }]; },
+    async getPassage() { return { html: title, version: { id: "edition", title, abbreviation: "TB" }, attribution: title }; },
+  };
+  const other = { ...provider, cacheTimeToLive: undefined };
+  const first = createScriptureClient({ provider });
+  const second = createScriptureClient({ provider });
+  expect((await first.listVersions())[0].title).toBe("First");
+  expect((await listBibleVersions({ provider }))[0].title).toBe("First");
+  expect((await fetchDisplay(provider, "edition", "JHN.3.16")).html).toBe("First");
+  await fetchDisplay(other, "edition", "JHN.3.16");
+  title = "Updated";
+  expect((await second.listVersions())[0].title).toBe("First");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect((await listBibleVersions({ provider }))[0].title).toBe("Updated");
+  expect((await fetchDisplay(provider, "edition", "JHN.3.16")).html).toBe("Updated");
+  title = "After purge";
+  await first.clearCache();
+  expect((await second.listVersions())[0].title).toBe("After purge");
+  expect((await fetchDisplay(provider, "edition", "JHN.3.16")).html).toBe("After purge");
+  // Same provider ID does not make a different object part of this purge.
+  expect((await fetchDisplay(other, "edition", "JHN.3.16")).html).toBe("First");
+});
+
+it("does not renew source expiry on hits, rejects stale replacements, and bypasses zero-TTL displays", async () => {
+  let text = "Original";
+  const expiresAt = Date.now() + 40;
+  const provider: BibleProvider = {
+    id: "deadline", defaultVersionId: "edition", cacheTimeToLive: "1 hour",
+    async getPassage() { return { html: text, version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner", cache: { expiresAt } }; },
+  };
+  expect((await fetchDisplay(provider, "edition", "JHN.3.16")).cache?.expiresAt).toBe(expiresAt);
+  text = "Updated";
+  expect((await fetchDisplay(provider, "edition", "JHN.3.16")).html).toBe("Original");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await expect(fetchDisplay(provider, "edition", "JHN.3.16")).rejects.toMatchObject({ code: "invalid_response" });
+  const uncached: BibleProvider = { ...provider, cacheTimeToLive: 0, async getPassage() {
+    return { html: text, version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" };
+  } };
+  expect((await fetchDisplay(uncached, "edition", "JHN.3.16")).html).toBe("Updated");
+  text = "Fresh again";
+  expect((await fetchDisplay(uncached, "edition", "JHN.3.16")).html).toBe("Fresh again");
+});
+
+it("does not return an in-flight cached display after a public purge", async () => {
+  let finish!: (value: Awaited<ReturnType<BibleProvider["getPassage"]>>) => void;
+  const provider: BibleProvider = { id: "pending", defaultVersionId: "edition", getPassage: () => new Promise((resolve) => { finish = resolve; }) };
+  const pending = fetchDisplay(provider, "edition", "JHN.3.16");
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  await createScriptureClient({ provider }).clearCache();
+  finish({ html: "Withdrawn", version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" });
+  await expect(pending).rejects.toMatchObject({ code: "unavailable" });
 });
