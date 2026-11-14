@@ -86,13 +86,14 @@ export function providerCache(provider: CacheOwner) {
 function makeProviderCache(timeToLive?: Duration.Input) {
   const cache = requestCache(timeToLive);
   const listeners = new Set<() => void>();
+  const lifetime = Duration.toMillis(timeToLive ?? Duration.infinity);
   let generation = 0;
   return {
-    timeToLive: Duration.toMillis(timeToLive ?? Duration.infinity),
+    timeToLive: lifetime,
     get<T>(key: string, load: () => Effect.Effect<T, ScriptureError>) {
       return Effect.gen(function*() {
         const started = generation;
-        const value = yield* cache.get(key, load);
+        const value = yield* (lifetime <= 0 ? load() : cache.get(key, load));
         if (started !== generation) return yield* new ScriptureError({ code: "unavailable", message: "Bible content was cleared while loading. Request it again after reviewing access." });
         return value;
       });
