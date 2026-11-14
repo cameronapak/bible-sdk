@@ -275,6 +275,9 @@ it("sanitizes native fetch.bible HTML, omits notes and inline attribution, and r
   expect(display.html).toContain('class="fb-s1"');
   expect(display.html).not.toMatch(/onclick|javascript:|script|Footnote|Required owner credit|Before|After/);
   expect(display.attribution).toContain("Required owner credit");
+  expect(display.attributionHtml).toContain('<a href="https://example.com/owner">Required owner credit</a>');
+  expect(display.attributionHtml).toContain('<a href="https://example.com/public">Public domain</a>');
+  expect(display.attributionHtml).not.toContain("https://example.com/nc");
   expect(display.containerAttributes?.class).toContain("fetch-bible");
   expect(display.stylesheets).toHaveLength(1);
 });

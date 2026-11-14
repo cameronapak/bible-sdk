@@ -75,6 +75,7 @@
           <a href="#data-sdk">Get Bible data</a>
           <a href="#getting-started">Add browser components</a>
         </p>
+        <p id="safeguard-release"><strong>Release availability:</strong> The cache and attribution safeguards documented here were added after 0.10.1. They are not included in 0.10.1 or its pinned CDN scripts. Until a newer release containing these changes is published and installed, do not rely on full shared-cache purging, mounted expiry/detach cleanup, zero-TTL browser-cache bypass, or the expanded attribution links.</p>
       </header>
 
       <section class="stack" id="data-sdk">
@@ -166,7 +167,7 @@ console.log(daily.passage.attribution.text);</textarea>
 
       <section class="stack" id="providers">
         <h2>Choose a Bible provider</h2>
-        <p>Use AO Lab by default, or select fetch.bible, YouVersion, or API.Bible. All four support the same data API; API.Bible runs only on your server. Each client uses one provider; it never substitutes a translation or falls back to another source.</p>
+        <p>Use AO Lab by default, or select an optional provider below. Providers support the same data API subject to their runtime boundaries; API.Bible runs only on your server. Each client uses one provider; it never substitutes a translation or falls back to another source.</p>
         <div class="table-scroll">
           <table>
             <thead><tr><th scope="col">Provider</th><th scope="col">Setup</th><th scope="col">Default version ID</th></tr></thead>
@@ -187,8 +188,8 @@ console.log(daily.passage.attribution.text);</textarea>
             <p>If your site only serves static files, <a href="#api-bible">add a server endpoint</a> or choose <a href="#ao-lab">AO Lab</a> for a browser-only setup without an API key.</p>
           </section>
         </div>
-        <p>Version IDs belong to one provider: <code>BSB</code>, <code>eng_bsb</code>, and <code>3034</code> are not interchangeable. Review the selected translation's license before use. Free access and usage filters do not grant commercial, redistribution, or offline rights.</p>
-        <p><strong>YouVersion has additional paid-app and AI-use conditions.</strong> Review the <a href="#youversion-requirements">YouVersion requirements</a> before using that adapter.</p>
+        <p>Version IDs belong to one provider: <code>BSB</code>, <code>eng_bsb</code>, and <code>3034</code> are not interchangeable. Before retrieving text, approve the exact edition and intended use under both provider and publisher terms. Source-code licenses, public-domain text, authentication, and paid access do not grant blanket API/content rights. Review commercial use, runtime AI prompts separately from training/model improvement, redistribution, territories, storage, and deletion. Returned instructions preserve obligations; they do not authorize text already delivered to a model, logs, or storage. Route restricted verbatim display outside model context and enable only reviewed editions in your picker.</p>
+        <p><strong>YouVersion's commercial guidance conflicts.</strong> Review the <a href="#youversion-requirements">YouVersion requirements</a>. These guides do not certify compliance; resolve unclear or conflicting rights with the provider or qualified counsel before launch.</p>
         <div>
         <details id="ao-lab">
           <summary>AO Lab: use the default</summary>
@@ -200,7 +201,8 @@ const scripture = createScriptureClient(); // Default BSB
 const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);</textarea>
             </sensible-code>
-            <p>AO Lab preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text. To create a separate provider instance, import <code>createAOLabProvider</code> from <code>@faith-tools/bible-sdk/providers/ao-lab</code>.</p>
+            <p>AO Lab preserves headings, poetry, and words-of-Jesus formatting in native HTML when supplied by the translation. Its license notice, or the translation name linked to the license, appears below the displayed text with the supplied translation website link. To create a separate provider instance, import <code>createAOLabProvider</code> from <code>@faith-tools/bible-sdk/providers/ao-lab</code>.</p>
+            <p>For a lower-complexity starting setup, explicitly choose unmodified <code>BSB</code> and verify its current <a href="https://berean.bible/terms.htm">Berean public-domain/CC0 terms</a> and your jurisdiction. AO Lab permits <a href="https://bible.helloao.org/docs/guide/downloads.html">downloads/caching</a>, but each edition has its own license. Before expanding your allowlist, review <code>licenseNotice</code>, <code>licenseUrl</code>, <code>licenseNotes</code>, publisher information, and applicable marks. BSB's status is not permission for every edition or provider.</p>
             <p>Use <code>aoLabProvider</code>, <code>createAOLabProvider()</code>, and <code>provider: "ao-lab"</code> for new code. The old <code>helloaoProvider</code>, <code>createHelloAOProvider()</code>, <code>/providers/helloao</code> import path, and <code>provider: "helloao"</code> input remain supported as deprecated aliases. Daily-verse selection uses <code>calendarSource: "ao-lab"</code>; <code>calendarSource: "helloao"</code> is also a deprecated alias. Returned provider IDs (including event details and daily calendar provenance) remain <code>helloao</code>, and tracing identifiers and upstream URLs stay unchanged. This additive migration does not change the source or its data.</p>
           </div>
         </details>
@@ -217,7 +219,7 @@ const scripture = createScriptureClient({
 const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);</textarea>
             </sensible-code>
-            <p>Set <code>usage.commercial</code> to your application's actual use. The example declares noncommercial use. The <code>derivatives</code>, <code>attributionless</code>, and <code>limitless</code> filters default to <code>false</code>, <code>false</code>, and <code>true</code>. Filters are not legal permission; review each translation's terms. The adapter uses the official collection.</p>
+            <p>Set <code>usage.commercial</code> to your application's actual use before discovery. Revenue-generating apps must not copy the example's <code>false</code> unchanged. The <code>derivatives</code>, <code>attributionless</code>, and <code>limitless</code> filters default to <code>false</code>, <code>false</code>, and <code>true</code>. Filters are not legal permission and do not evaluate <code>forbid_other</code>; read the full translation license. Multiple licenses are alternatives: choose a suitable one and preserve attribution, license/rights-holder links, and applicable share-alike/change notices. Service-level caching/offline permission and the client's MIT-0 code license do not waive edition-specific NC/ND or other conditions. The adapter uses the official collection.</p>
           </div>
         </details>
         <details id="api-bible">
@@ -229,6 +231,7 @@ console.log(passage.text, passage.attribution);</textarea>
               <textarea readonly>pnpm add @faith-tools/bible-sdk @americanbible/api-bible-sdk</textarea>
             </sensible-code>
             <p>Each application supplies its own registered API.Bible account/key and applicable licenses. Bible SDK supplies adapter code, not shared-account access. Keep the key in a server secret, never a browser bundle, <code>VITE_*</code> variable, element attribute, URL, or log. The adapter export rejects browser resolution and construction; that does not replace keeping secrets out of client code.</p>
+            <p><strong>Before the first passage request:</strong> review full edition metadata using the official client's <code>bibles.get(id)</code> or <code>/bibles</code> with full details, obtain the exact current dashboard citation, and confirm account/edition/use/territory permissions. Store approved edition IDs in an application allowlist. Build the copyright page and actual-view reporting before web display. Resolve published DRM/print/device requirements with API.Bible; the SDK does not provide a universally compliant DRM implementation.</p>
             <sensible-code language="js" data-wrap="true">
               <textarea readonly>// Server code only. The same provider works with /data/effect.
 import { createBibleClient } from "@americanbible/api-bible-sdk";
@@ -253,9 +256,10 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16-18" });
             <ul>
               <li><strong>Display reporting:</strong> report <code>reporting.token</code> for each actual web view to <a href="https://care.api.bible/article/417-understanding-fums">FUMS</a>, including cache hits, not fetches/prefetches. The host owns device/session IDs and privacy requirements. No analytics are sent automatically.</li>
               <li><strong>Attribution:</strong> show attribution and links below Scripture, identify the translation, and provide the required linked copyright/about page. Preserve <code>publisher.copyrightHtml</code> and <code>publisher.infoHtml</code>; sanitize this untrusted upstream HTML before rendering. Keep the visible API.Bible source link.</li>
-              <li><strong>Caching and removal:</strong> discovery/publisher caches refresh after 14 days. Refresh downstream copies by <code>cache.expiresAt</code> (epoch milliseconds), never retain metadata/content over 30 days without refresh, and honor shorter removal/revocation deadlines. Some requests require removal within 24 hours; termination provisions can require immediate deletion. A TTL is not offline permission.</li>
+              <li><strong>Caching and removal:</strong> discovery/publisher caches refresh after 14 days. Refresh downstream copies by <code>cache.expiresAt</code> (epoch milliseconds), never retain metadata/content over 30 days without refresh, and honor shorter removal/revocation deadlines. Sections 11 and 13 of the Terms can require action within 24 hours. Section 10 has 72-hour removal provisions; section 18 ends permission to use content immediately on termination and requires permanent deletion. Do not treat the longer period as permission to ignore an earlier obligation. A TTL is not offline permission.</li>
               <li><strong>Plan and content restrictions:</strong> Starter is noncommercial even for public-domain editions. Each app owner accepts the required account agreements, including the Statement of Orthodoxy, and checks licenses, content integrity, territorial/export restrictions, and economic sanctions. Violations can lead to suspension/revocation, removal duties, audits, fees, and indemnification.</li>
-              <li><strong>DRM and AI:</strong> the terms require application-level DRM restricting copying/distribution, printing over 100 verses, territory and device counts, without specifying a universally compliant implementation. A private key alone does not satisfy that obligation. <a href="https://care.api.bible/article/405-express-licensing-faqs">Express Licensing guidance</a> restricts copyrighted and Creative Commons Scripture in LLM prompts as well as training. Public-domain runtime prompts are permitted; confirm training, TTS, and exports separately.</li>
+              <li><strong>DRM and AI:</strong> the terms require application-level DRM restricting copying/distribution, printing over 100 verses, territory and device counts, without specifying a universally compliant implementation. A private key alone does not satisfy that obligation. <a href="https://care.api.bible/article/405-express-licensing-faqs">Express Licensing guidance</a> restricts copyrighted and Creative Commons Scripture in runtime LLM prompts as well as training. Check permission before retrieval, not after returning text to an agent. Public-domain runtime prompts are permitted; confirm training, TTS, and exports separately. Do not assume independent publisher AI permission waives API.Bible's contract, or API terms erase an open-content license; resolve conflicts before use.</li>
+              <li><strong>Territories and outbound messages:</strong> current terms exclude KJV distribution in the UK, Crown dependencies, and listed overseas territories even if marked public domain. Email/SMS/push have separate permitted-license and territory rules; a daily-verse helper does not authorize sending every edition. Check other edition-specific limits and the full current terms, not only metadata flags.</li>
             </ul>
             <h3 id="api-bible-components">API.Bible in the passage component</h3>
             <p>The same server provider implements <code>getPassageDisplay(versionId, passageId)</code>. It requests native HTML once, validates coverage, sanitizes unsafe markup, and preserves USX classes for poetry, scriptural titles, small caps, italics, and tables. The component loads a reviewed, commit-pinned copy of the <a href="https://docs.api.bible/resources/scripture-styling/">official Scripture Styles</a> inside its shadow root. This CSS is optional under API.Bible's guidance, not a required design. Customize it with <code>--scripture-*</code>; theme, verse-number, heading, and direction controls still work. Omit <code>red-letter</code> to keep the official muted <code>.wj</code> styling, use <code>red-letter="on"</code> to color marked words of Jesus red, or use <code>red-letter="off"</code> for the text color. These controls require the translation to supply words-of-Jesus markers. Hiding editorial headings leaves scriptural Psalm titles visible.</p>
@@ -298,15 +302,26 @@ async function read(query: URLSearchParams) {
 }
 const provider: BibleProvider = {
   id: "api-bible", defaultVersionId: "bba9f40183526463-01",
+  cacheTimeToLive: "14 days", // Discovery/display reuse; preserve server cache.expiresAt too.
   getPassage: (version, passage) => read(new URLSearchParams({ version, passage })),
   listVersions: () => read(new URLSearchParams({ versions: "1" })),
 };
 defineScripturePassage({ provider });
 // &lt;bible-sdk-passage passage-id="PSA.3.1-2"&gt;&lt;/bible-sdk-passage&gt;</textarea>
             </sensible-code>
-            <p>Add your app's authentication, rate limits, edition/access controls, and privacy-aware FUMS integration. This example does not create a public shared-key proxy. The translation picker can use the same browser provider through <code>defineVersionInput({ provider })</code>.</p>
+            <p>Add authentication, rate limits, edition/access controls, and privacy-aware FUMS integration before exposing this route. The snippet does not implement these controls: an unrestricted endpoint can create an unauthorized shared-key/content proxy. Ordinary app-owned backends are supported, not a substitute Bible API or extracted corpus. The translation picker can use this provider through <code>defineVersionInput({ provider })</code>.</p>
             <p><code>copyrightUrl</code> is required for display, not plain-text data access. Every quotation page gets a visible link. Populate that page with sanitized <code>publisher.copyrightHtml</code> and <code>publisher.infoHtml</code>, the full translation name/abbreviation, the exact current dashboard/Appendix A citation, and a clickable rights-holder link. Raw metadata alone does not guarantee a complete notice. Applicable direct publisher formatting/citation agreements take precedence; resolve conflicts with API.Bible's remaining minimum requirements before use.</p>
-            <p><code>scripture-load.detail.reporting</code> carries the FUMS token after rendering; <code>detail.cache.expiresAt</code> carries the absolute refresh deadline. Connect this to your actual-view reporter, including later cached displays. Rendered does not mean visible: hidden/offscreen components and prerenders need host visibility handling. Layout/theme changes do not fire another load event. No analytics are sent automatically. Cached displays refresh on the next load at the deadline; the host must refresh/remove long-lived mounted displays and honor earlier revocations. Expired server data causes an error instead of stale Scripture.</p>
+            <p>The following component lifecycle safeguards require a release containing the post-0.10.1 changes, not the pinned 0.10.1 script. See <a href="#safeguard-release">release availability</a>.</p>
+            <p><code>scripture-load.detail.reporting</code> carries the FUMS token; <code>detail.cache.expiresAt</code> is the absolute refresh deadline. The component removes expired mounted text before requesting a replacement; expired replacement data causes an error, not stale Scripture. The host owns other retained copies and earlier revocations. <code>client.clearCache()</code> removes mounted passages sharing that browser provider without refetching; a server purge cannot notify a different browser realm.</p>
+            <p>Initialize the <a href="https://care.api.bible/article/417-understanding-fums">official FUMS tracker</a> in your browser:</p>
+            <sensible-code language="html" data-wrap="true">
+              <textarea readonly><script>
+  window.fumsData = window.fumsData || [];
+  window.fums = window.fums || function () { window.fumsData.push(arguments); };
+&lt;/script>
+<script async src="https://pkg.api.bible/fumsV3.min.js">&lt;/script></textarea>
+            </sensible-code>
+            <p>Retain the token from <code>scripture-load.detail.reporting</code>. Each time host visibility/navigation logic determines the user actually sees the passage, call <code>window.fums("trackView", token)</code>, including later cached views. Tokens are reusable. Loading is not visibility: hidden/offscreen components, prerenders, and reopened views need host handling; layout/theme changes emit no new load. Do not report fetches as views. The SDK sends no analytics. Fully native apps without web components have a documented exemption; hybrid web views do not. Manual reporting needs anonymous device/session IDs, never raw PII. Review applicable privacy requirements.</p>
           </div>
         </details>
         <details>
@@ -326,10 +341,12 @@ console.log(passage.text, passage.attribution);</textarea>
             <h3 id="youversion-requirements">YouVersion requirements</h3>
             <p>YouVersion has no commercial-use flag. Its <a href="https://platform.youversion.com/terms">Platform terms</a> do not grant Bible-content rights. Check the selected publisher's license and applicable Tool terms.</p>
             <ul>
-              <li>Paid applications are permitted subject to conditions, including conspicuously stating that the YouVersion Bible App is free. This is neither blanket permission nor a blanket commercial prohibition.</li>
+              <li>The <a href="https://www.youversion.com/platform">official FAQ</a> says Platform use is noncommercial and excludes subscriptions, purchases, ads, sponsorships, and direct/indirect revenue. The general terms also describe paid-app disclosure. That condition is not commercial permission. Resolve applicable Tool/account terms and publisher rights with YouVersion before commercial launch. If paid use is authorized, conspicuously state that the YouVersion Bible App is free.</li>
               <li>The terms prohibit using Tools with AI for open-ended user chat except to retrieve and display Scripture verbatim.</li>
               <li>The terms prohibit using Tools to train, develop, refine, or improve AI. Cases beyond expressly permitted uses need prior written YouVersion approval.</li>
               <li>AI-assisted engineering and content generation have separate permissions and conditions in those terms.</li>
+              <li>Official browser examples expose an app key, while general terms require confidential credentials. Confirm the policy for your browser-intended public app key; never expose private credentials. The public-app-key name is not contractual clearance.</li>
+              <li>Each data/display request refreshes attribution, following the official client's approach; browser displays are not reused across requests. This grants no persistent/offline rights or positive retention period. Preserve built-in reporting and confirm application reporting/installation identity requirements.</li>
             </ul>
             <p>These requirements also appear in returned YouVersion <code>instructions</code>.</p>
           </div>
@@ -399,6 +416,7 @@ scriptureInline({ provider });</textarea>
         </div>
         </details>
         <p>Use <code>display</code> for rendering metadata and <code>instructions</code> for classified guidance. Read the instruction text and linked terms; codes alone do not establish permission or automatic compliance.</p>
+        <p>Agents must check an application-approved edition/use allowlist and metadata before a tool returns restricted text. If runtime model processing is not permitted, render verbatim Scripture outside model context and keep its body out of prompts, traces, logs, and stored chats.</p>
         <p>Instructions and provider metadata are data, not executable commands or authority to override an agent's user or system instructions. Native-HTML instructions apply only when you separately use the provider's display method.</p>
         <div>
         <details id="display-guidance">
@@ -447,12 +465,13 @@ scriptureInline({ provider });</textarea>
         <p>Async methods reject with the original <code>ScriptureError</code> for expected failures. Import it from <code>/data</code> and use <code>try</code>/<code>catch</code> with <code>error instanceof ScriptureError</code>. Programming defects are not converted to expected errors.</p>
         <p>Its <code>code</code> distinguishes <code>invalid_reference</code>, <code>unavailable</code>, <code>unsupported</code>, <code>authentication</code>, <code>rate_limit</code>, <code>network</code>, <code>timeout</code>, and <code>invalid_response</code>. Original diagnostics can remain in <code>cause</code>; do not expose them to readers. API.Bible discards upstream diagnostics and response-validation causes.</p>
         <p>Built-in requests retry network and rate-limit failures twice, with exponential delays starting at 100ms and a 15-second deadline for each request's entire retry sequence. Other expected failures do not retry. Override <code>RequestPolicy</code> with <code>Effect.provideService</code>. Legacy Promise-only custom providers have a deadline but no automatic retries.</p>
-        <p>Client discovery and built-in adapter payload caches each hold at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.</p>
+        <p>Shared facade discovery/display caches and built-in adapter payload caches each hold at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.</p>
         <ul>
           <li>AO Lab shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.</li>
-          <li>API.Bible discovery and publisher metadata expire after 14 days; passage payloads are not memoized. Other built-in cache entries retain their existing lifetime until clearing/eviction. Custom providers can set <code>cacheTimeToLive</code> to an Effect <code>Duration.Input</code> for discovery caches. API.Bible downstream caches must honor <code>cache.expiresAt</code> and any earlier removal request.</li>
-          <li>Run <code>client.clearCache()</code>, or provide its Layer to <code>scripture.clearCache</code>, to clear that client's discovery and its provider's payload caches. This does not invalidate other clients' discovery or the components' separate display/catalog caches.</li>
-          <li>The client does not memoize passage data or YouVersion attribution. Persistent caching is not provided.</li>
+          <li>API.Bible discovery/publisher metadata expire after 14 days; passage data is not memoized. YouVersion uses zero TTL for fresh discovery/attribution per request. AO Lab/fetch.bible entries retain their existing lifetime until clearing/eviction. Other provider-specific deadlines still apply.</li>
+          <li>Data and Promise display providers can set <code>cacheTimeToLive</code> to an Effect <code>Duration.Input</code>. Positive TTL bounds discovery/display reuse and supplies a mounted-display deadline, never extending an earlier <code>cache.expiresAt</code>. Zero TTL bypasses shared display storage before the first request; it invents no positive mounted retention deadline. Set TTL on a server's browser bridge too. Preserve original upstream deadlines on cache hits.</li>
+          <li>Run <code>client.clearCache()</code>, or provide that client's Layer to <code>scripture.clearCache</code>, to purge discovery/display caches shared by the provider object (or native <code>.effects</code>) and clear adapter payloads. Mounted passages are removed without automatic refetch; explicitly reload/reconnect only after reviewing access. Other provider objects, browser/server realms, host/CDN caches, and already-open version-picker UI are not controlled. Raw adapter <code>clearCache</code> only clears its own payloads.</li>
+          <li>Mounted deadlines remove expired text before refreshing, recheck on page visibility/resume, and show an error on failed replacement. Detached passages, including closed cards, release loaded data, staged markup, and rendered text. Browsers can suspend timers; hosts own hidden-view lifetimes, earlier revocations, and other storage. The client does not memoize passage data or provide persistent storage.</li>
         </ul>
           </div>
         </details>
@@ -627,7 +646,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><th scope="col">Attribute</th><th scope="col">Default</th><th scope="col">Purpose</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>yvp-public-app-key</code></td><td>The script tag's key</td><td>Your public YouVersion Platform app key. It is safe to put in page markup. Only needed to override the key on the script tag.</td></tr>
+            <tr><td><code>yvp-public-app-key</code></td><td>The script tag's key</td><td>Your browser-intended public YouVersion Platform app key. Confirm your account/Tool's exposure policy; never use private credentials. Only needed to override the script tag's key.</td></tr>
             <tr><td><code>provider</code></td><td>The script's provider, or <code>ao-lab</code></td><td><code>ao-lab</code> or <code>youversion</code>. <code>helloao</code> is a deprecated input alias.</td></tr>
             <tr><td><code>bible-version-id</code></td><td>The script's version, or provider default</td><td><code>BSB</code> for AO Lab; <code>3034</code> for YouVersion.</td></tr>
             <tr><td><code>yvp-bible-version-id</code></td><td><code>3034</code></td><td>YouVersion-only alias. <code>bible-version-id</code> takes precedence.</td></tr>

@@ -1,7 +1,7 @@
 import { FreeUseBibleApi, type ApiTranslation, type ChapterVerse } from "free-use-bible-api";
-import { Clock, Effect, Schema } from "effect";
-import { CalendarDate, ScriptureError, type BibleDisplayProvider, type BibleVersion } from "./data-types.js";
-import { attributionLink, bookId, escapeHtml, passageRange, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
+import { Clock, Duration, Effect, Schema } from "effect";
+import { BibleVersion, CalendarDate, ScriptureError, type BibleDisplayProvider, type ScripturePassage } from "./data-types.js";
+import { attributionLink, bookId, escapeHtml, passageRange, providerCache, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
 import { decodeResponse, request, withPromises } from "./runtime.js";
 
 export type { BibleVersion } from "./data-types.js";
@@ -18,8 +18,10 @@ export type PassageDisplay = {
   stylesheets?: readonly { kind: "bible" | "font"; href: string }[];
   /** Host-owned actual-view reporting. Fetching a display is not a view. */
   reporting?: { kind: "api-bible-fums"; token: string };
-  /** Absolute refresh deadline, shared with server-side publisher metadata. */
+  /** Absolute deadline, never renewed on cache hits. */
   cache?: { expiresAt: number };
+  instructions?: ScripturePassage["instructions"];
+  licenses?: ScripturePassage["licenses"];
   /** Preserved for existing YouVersion scripture-load consumers. */
   yvpBibleVersion?: unknown;
 };
@@ -30,6 +32,8 @@ export interface BibleProvider {
   readonly defaultVersionId: string;
   /** Native Effect operations, supplied by built-ins. Promise-only custom providers remain supported. */
   readonly effects?: BibleDisplayProvider;
+  /** Discovery/display reuse lifetime, including custom server bridges. */
+  readonly cacheTimeToLive?: Duration.Input;
   getPassage(versionId: string, passageId: string): Promise<PassageDisplay>;
   /** Optional for passage-only custom providers. Required by the version picker. */
   listVersions?(): Promise<BibleVersion[]>;
@@ -68,7 +72,7 @@ const chapterContent = Schema.Array(Schema.Union([
 ]));
 const helloaoChapter = decodeResponse(Schema.Struct({
   translation: Schema.Struct({
-    id: Schema.NonEmptyString, name: Schema.String, licenseUrl: Schema.String,
+    id: Schema.NonEmptyString, name: Schema.String, licenseUrl: Schema.String, website: Schema.optional(Schema.String),
     language: SourceLanguage, shortName: Schema.optional(Schema.String),
     textDirection: Schema.optional(Schema.Literals(["ltr", "rtl"])),
     licenseNotice: Schema.optional(Schema.NullOr(Schema.String)), licenseNotes: Schema.optional(Schema.NullOr(Schema.String)),
@@ -79,10 +83,10 @@ const helloaoChapter = decodeResponse(Schema.Struct({
 }));
 const youversionList = <S extends Schema.Constraint & { DecodingServices: never }>(item: S) => decodeResponse(Schema.Struct({ data: Schema.Array(item) }));
 
-function helloaoAttribution(translation: Pick<ApiTranslation, "name" | "licenseNotice" | "licenseUrl">) {
+function helloaoAttribution(translation: Pick<ApiTranslation, "name" | "licenseNotice" | "licenseUrl"> & { website?: string }) {
   return {
-    text: `${translation.licenseNotice || `${translation.name}. ${translation.licenseUrl}`} · Source: AO Lab Free Use Bible API`,
-    html: `${translation.licenseNotice ? escapeHtml(translation.licenseNotice) : `${attributionLink(translation.name, translation.licenseUrl)}.`} · Source: ${attributionLink("AO Lab Free Use Bible API", "https://bible.helloao.org/docs/")}`,
+    text: `${translation.licenseNotice || `${translation.name}. ${translation.licenseUrl}`}${translation.website ? " · Translation website" : ""} · Source: AO Lab Free Use Bible API`,
+    html: `${translation.licenseNotice ? attributionLink(translation.licenseNotice, translation.licenseUrl) : `${attributionLink(translation.name, translation.licenseUrl)}.`}${translation.website ? ` · ${attributionLink("Translation website", translation.website)}` : ""} · Source: ${attributionLink("AO Lab Free Use Bible API", "https://bible.helloao.org/docs/")}`,
   };
 }
 
@@ -252,7 +256,7 @@ export function createAOLabProvider() {
           language: new Intl.Locale(translation.language).language,
           sourceLanguage: translation.language,
         },
-        attribution: { text: helloaoAttribution(translation).text, urls: [translation.licenseUrl, "https://bible.helloao.org/docs/"].filter(Boolean) },
+        attribution: { text: helloaoAttribution(translation).text, urls: [translation.licenseUrl, translation.website || "", "https://bible.helloao.org/docs/"].filter(Boolean) },
         licenses: translation.licenseUrl || translation.license ? [{ url: translation.licenseUrl, ...(translation.license ? { restrictions: { ...translation.license } } : {}) }] : [],
         numbering: "unknown",
         display: { format: "text", whitespace: "pre-wrap", attributionPlacement: "after-passage", direction: translation.textDirection, language: translation.language },
@@ -330,6 +334,7 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
   const effects: BibleDisplayProvider = {
     id: "youversion",
     defaultVersionId: "3034",
+    cacheTimeToLive: Duration.zero,
     clearCache: Effect.void,
     getVerseOfTheDay: Effect.fn("youversion.getVerseOfTheDay")(function*(date) {
       yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
@@ -382,9 +387,9 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
         },
         instructions: [
           ...textInstructions(),
-          { code: "youversion-commercial-use", level: "required", appliesTo: "all", text: "YouVersion has no commercial-use flag. Its Platform terms do not grant Bible-content rights: confirm the selected publisher's license and applicable Tool terms before commercial use. Paid applications must conspicuously state that the YouVersion Bible App is free. fetch.bible usage settings do not apply to YouVersion.", urls: ["https://platform.youversion.com/terms"] },
+          { code: "youversion-commercial-use", level: "required", appliesTo: "all", text: "YouVersion's official FAQ says Platform use is noncommercial, while its general terms impose a disclosure condition on paid applications. That condition is not commercial permission. Resolve the applicable Tool/account terms and publisher licenses with YouVersion before commercial use. If paid use is authorized, conspicuously state that the YouVersion Bible App is free. fetch.bible usage flags do not apply.", urls: ["https://www.youversion.com/platform", "https://platform.youversion.com/terms"] },
           { code: "youversion-ai-use", level: "required", appliesTo: "all", text: "YouVersion prohibits using its Tools with AI for open-ended user chat, except to retrieve and display Scripture verbatim, word-for-word and unaltered. Do not use the Tools to train, develop, refine, or improve AI. Cases beyond the expressly permitted uses require prior written YouVersion approval. The terms separately permit AI-assisted engineering and content generation subject to their stated conditions; review the full terms.", urls: ["https://platform.youversion.com/terms"] },
-          { code: "youversion-terms", level: "required", appliesTo: "all", text: "Follow your YouVersion account and content agreements. This SDK does not establish persistent caching or offline rights. Attribution is refreshed on every data request.", urls: ["https://developers.youversion.com/sdks/javascript/guides/copyright-and-attribution"] },
+          { code: "youversion-terms", level: "required", appliesTo: "all", text: "Follow your YouVersion account and content agreements. No persistent caching or offline rights are established. Attribution is refreshed on every data/display request. Official browser examples expose an app key, while general terms require confidential credentials: confirm the policy for your browser-intended public app key and never expose private credentials. Preserve built-in reporting; confirm reporting requirements for your application.", urls: ["https://platform.youversion.com/terms", "https://developers.youversion.com/guides/display-bible-html"] },
           { code: "youversion-native-html", level: "required", appliesTo: "html", text: "If you request native HTML through the display provider, apply its returned containerAttributes and stylesheets. Load Untitled Serif from the YouVersion Fonts API; do not download or self-host its font files. These HTML resources are not required to interpret the plain-text result.", urls: ["https://developers.youversion.com/guides/display-bible-html"] },
         ],
       };
@@ -446,14 +451,13 @@ export function resolveProvider(options: ProviderOptions): BibleProvider {
 
 export const resolveProviderEffect = (options: ProviderOptions) => Effect.try({ try: () => resolveProvider(options), catch: (cause) => cause instanceof ScriptureError ? cause : new ScriptureError({ code: "unsupported", message: "Invalid Bible provider configuration.", cause }) });
 
-const catalogs = new WeakMap<BibleProvider, ReturnType<typeof requestCache>>();
-
 export const listBibleVersionsEffect = Effect.fn("scripture.listBibleVersions")(function*(options: ProviderOptions = {}) {
   const provider = yield* resolveProviderEffect({ ...providerDefaults, ...options });
   if (!provider.listVersions) return yield* new ScriptureError({ code: "unsupported", message: "This Bible provider does not support listing versions." });
-  let cache = catalogs.get(provider);
-  if (!cache) catalogs.set(provider, cache = requestCache());
-  return yield* cache.get("versions", () => provider.effects?.listVersions() ?? request("custom.listVersions", () => provider.listVersions!(), false));
+  const cache = providerCache(provider);
+  return yield* cache.get("versions", () => (provider.effects?.listVersions() ?? request("custom.listVersions", () => provider.listVersions!(), false)).pipe(
+    Effect.tap(decodeResponse(Schema.Array(BibleVersion))),
+  ));
 });
 
 /** Lists versions available from the configured provider, never a cross-provider guess. */
@@ -461,17 +465,22 @@ export function listBibleVersions(options: ProviderOptions = {}): Promise<BibleV
   return Effect.runPromise(listBibleVersionsEffect(options));
 }
 
-// Cache by provider identity as well as version and passage. Rejected requests can retry.
-const displays = new WeakMap<BibleProvider, ReturnType<typeof requestCache>>();
+// Share provider identity and invalidation with the data client, never with another provider.
 export const fetchDisplayEffect = Effect.fn("scripture.fetchDisplay")(function*(provider: BibleProvider, versionId: string, passageId: string) {
-  let cache = displays.get(provider);
-  if (!cache) displays.set(provider, cache = requestCache());
-  const key = JSON.stringify([versionId, passageId]);
-  const load = () => provider.effects?.getPassageDisplay(versionId, passageId) ?? request("custom.getPassage", () => provider.getPassage(versionId, passageId), false);
-  let display = yield* cache.get(key, load);
+  const cache = providerCache(provider);
+  const key = JSON.stringify(["display", versionId, passageId]);
+  const load = () => Effect.gen(function*() {
+    const started = yield* Clock.currentTimeMillis;
+    const display = yield* (provider.effects?.getPassageDisplay(versionId, passageId) ?? request("custom.getPassage", () => provider.getPassage(versionId, passageId), false));
+    const expiresAt = Math.min(display.cache?.expiresAt ?? Infinity, cache.timeToLive > 0 ? started + cache.timeToLive : Infinity);
+    if (expiresAt !== Infinity && !Number.isFinite(expiresAt)) return yield* new ScriptureError({ code: "invalid_response", message: "The provider returned an invalid passage deadline." });
+    return expiresAt === Infinity ? display : { ...display, cache: { expiresAt } };
+  });
+  const read = () => cache.get(key, load);
+  let display = yield* read();
   if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
     yield* cache.invalidate(key);
-    display = yield* cache.get(key, load);
+    display = yield* read();
     if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
       yield* cache.invalidate(key);
       return yield* new ScriptureError({ code: "invalid_response", message: "The provider returned an expired passage. Refresh its content and publisher metadata." });

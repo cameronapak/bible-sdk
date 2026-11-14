@@ -1,7 +1,7 @@
 import { Clock, Effect, Layer, Schema } from "effect";
 import { createAOLabProvider, aoLabProvider, type BibleProvider } from "./providers.js";
 import { BibleBook, BibleChapter, BibleSource, BibleVersion, CalendarDate, DailyVerseReference, ScriptureError, ScripturePassage, VerseOfTheDay, type BibleDataProvider, type VerseOfTheDayOptions } from "./data-types.js";
-import { bookId, passageRange, requestCache } from "./data-helpers.js";
+import { bookId, passageRange, providerCache } from "./data-helpers.js";
 import { decodeResponse as response, request } from "./runtime.js";
 
 export { BibleBook, BibleChapter, BibleSource, BibleVersion, DailyVerseReference, DisplayInstruction, ScriptureError, ScriptureErrorCode, ScripturePassage, VerseOfTheDay } from "./data-types.js";
@@ -64,7 +64,7 @@ export function createScriptureClient({ provider = createAOLabProvider() }: { pr
     listVersions: () => provider.listVersions ? request("custom.listVersions", () => provider.listVersions!(), false) : unsupported(),
     listBooks: unsupported, listChapters: unsupported, getPassageData: unsupported, clearCache: Effect.void,
   };
-  const cache = requestCache(source.cacheTimeToLive);
+  const cache = providerCache(provider);
   const layer = Layer.succeed(BibleSource, {
     id: source.id,
     defaultVersionId: source.defaultVersionId,

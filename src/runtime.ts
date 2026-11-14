@@ -54,6 +54,7 @@ export function withPromises(effects: BibleDisplayProvider): BibleProvider & { r
     id: effects.id,
     defaultVersionId: effects.defaultVersionId,
     effects,
+    cacheTimeToLive: effects.cacheTimeToLive,
     listVersions: () => Effect.runPromise(effects.listVersions()),
     getPassage: (versionId, passageId) => Effect.runPromise(effects.getPassageDisplay(versionId, passageId)),
   };
