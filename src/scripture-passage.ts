@@ -210,7 +210,6 @@ export class ScripturePassage extends HTMLElement {
   private generation = 0;
   /** The loaded passage, kept so a layout change re-renders without a request. */
   private loaded: { display: PassageDisplay; passageId: string } | null = null;
-  private scheduled = false;
   private cancelLoad?: () => void;
   private cancelTheme?: () => void;
   private cancelAnimation?: () => void;
@@ -266,18 +265,13 @@ export class ScripturePassage extends HTMLElement {
     this.cancelAnimation?.();
     this.cancelExpiry?.();
     this.cancelCache?.();
-    if (this.scheduled) return;
-    this.scheduled = true;
-    queueMicrotask(() => {
-      this.scheduled = false;
-      if (this.isConnected) this.cancelLoad = Effect.runCallback(this.load(this.generation).pipe(
-        Effect.catch((error) => Effect.sync(() => {
-          this.showError("Unable to display Bible text. Check the provider, version, and passage.");
-          this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
-        })),
-        Effect.scoped,
-      ));
-    });
+    if (this.isConnected) this.cancelLoad = Effect.runCallback(this.load(this.generation).pipe(
+      Effect.catch((error) => Effect.sync(() => {
+        this.showError("Unable to display Bible text. Check the provider, version, and passage.");
+        this.dispatchEvent(new CustomEvent("scripture-error", { detail: error }));
+      })),
+      Effect.scoped,
+    ));
   }
 
   /** Never keep expired Scripture visible while a replacement loads or fails. */
@@ -394,7 +388,6 @@ export class ScripturePassage extends HTMLElement {
     if (!this.root.querySelector(":scope > .scripture-loading")) this.showLoading();
     // Cached passages resolve before the loader paints; those swap in without a grow.
     let loaderPainted = false;
-    yield* nextFrame.pipe(Effect.andThen(Effect.sync(() => { loaderPainted = true; })), Effect.forkScoped);
 
       const provider = yield* resolveProviderEffect({
         ...defaults,
@@ -411,6 +404,11 @@ export class ScripturePassage extends HTMLElement {
         this.root.style.minHeight = `${this.root.getBoundingClientRect().height}px`;
         this.showError("Bible text was cleared. Reload the passage after reviewing access.");
       }).pipe(Effect.andThen(Effect.never), Effect.scoped));
+      // Subscribe before yielding so a same-turn purge cancels queued work too.
+      // Keep same-turn attribute changes coalesced before requesting content.
+      yield* Effect.promise(() => new Promise<void>((resolve) => queueMicrotask(resolve)));
+      if (!this.isConnected || generation !== this.generation) return;
+      yield* nextFrame.pipe(Effect.andThen(Effect.sync(() => { loaderPainted = true; })), Effect.forkScoped);
       const pageVersion = provider === resolveProvider(defaults)
         ? defaults.bibleVersionId ?? (provider.id === "youversion" ? defaults.yvpBibleVersionId?.toString() : undefined)
         : undefined;

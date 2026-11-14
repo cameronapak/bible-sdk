@@ -183,7 +183,7 @@ it("discards late results after a provider change and retries rejected requests"
   passage.bibleProvider = old;
   passage.setAttribute("passage-id", "PSA.23.1");
   document.body.append(passage);
-  await Promise.resolve();
+  await vi.waitFor(() => expect(finish).toBeDefined());
   const failed = nextEvent(passage, "scripture-error");
   passage.bibleProvider = current;
   await failed;
@@ -258,6 +258,33 @@ it("purges mounted zero-TTL displays without refetching and drops detached conte
   await loaded;
   expect(passage.shadowRoot!.querySelector('[part="text"]')?.textContent).toBe(text);
   expect(requests).toBe(3);
+});
+
+it.each(["connection", "attribute change"])("does not revive queued passage work after a purge during %s", async (when) => {
+  let requests = 0;
+  const provider: BibleProvider = { id: "queued", defaultVersionId: "edition", cacheTimeToLive: 0, async getPassage() {
+    requests += 1;
+    return { html: "Authorized fixture", version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" };
+  } };
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = provider;
+  passage.setAttribute("passage-id", "JHN.3.16");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  if (when === "attribute change") {
+    await loaded;
+    passage.setAttribute("passage-id", "JHN.3.17");
+  }
+  await createScriptureClient({ provider }).clearCache();
+  await new Promise((resolve) => setTimeout(resolve));
+  expect(requests).toBe(when === "connection" ? 0 : 1);
+  expect(passage.shadowRoot!.querySelector('[part="text"]')).toBeNull();
+  expect(passage.shadowRoot!.querySelector('[role="alert"]')?.textContent).toContain("cleared");
+  passage.remove();
+  const reloaded = nextEvent(passage);
+  document.body.append(passage);
+  await reloaded;
+  expect(passage.shadowRoot!.querySelector('[part="text"]')?.textContent).toBe("Authorized fixture");
 });
 
 it("discards pending staged zero-TTL text on detach and reconnects with a fresh display", async () => {

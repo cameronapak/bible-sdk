@@ -1,6 +1,6 @@
 import { FreeUseBibleApi, type ApiTranslation, type ChapterVerse } from "free-use-bible-api";
 import { Clock, Duration, Effect, Schema } from "effect";
-import { CalendarDate, ScriptureError, type BibleDisplayProvider, type BibleVersion, type ScripturePassage } from "./data-types.js";
+import { BibleVersion, CalendarDate, ScriptureError, type BibleDisplayProvider, type ScripturePassage } from "./data-types.js";
 import { attributionLink, bookId, escapeHtml, passageRange, providerCache, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
 import { decodeResponse, request, withPromises } from "./runtime.js";
 
@@ -455,7 +455,9 @@ export const listBibleVersionsEffect = Effect.fn("scripture.listBibleVersions")(
   const provider = yield* resolveProviderEffect({ ...providerDefaults, ...options });
   if (!provider.listVersions) return yield* new ScriptureError({ code: "unsupported", message: "This Bible provider does not support listing versions." });
   const cache = providerCache(provider);
-  return yield* cache.get("versions", () => provider.effects?.listVersions() ?? request("custom.listVersions", () => provider.listVersions!(), false));
+  return yield* cache.get("versions", () => (provider.effects?.listVersions() ?? request("custom.listVersions", () => provider.listVersions!(), false)).pipe(
+    Effect.tap(decodeResponse(Schema.Array(BibleVersion))),
+  ));
 });
 
 /** Lists versions available from the configured provider, never a cross-provider guess. */
@@ -474,7 +476,7 @@ export const fetchDisplayEffect = Effect.fn("scripture.fetchDisplay")(function*(
     if (expiresAt !== Infinity && !Number.isFinite(expiresAt)) return yield* new ScriptureError({ code: "invalid_response", message: "The provider returned an invalid passage deadline." });
     return expiresAt === Infinity ? display : { ...display, cache: { expiresAt } };
   });
-  const read = () => cache.timeToLive <= 0 ? load() : cache.get(key, load);
+  const read = () => cache.get(key, load);
   let display = yield* read();
   if (display.cache && display.cache.expiresAt <= (yield* Clock.currentTimeMillis)) {
     yield* cache.invalidate(key);

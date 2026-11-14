@@ -218,12 +218,29 @@ it("does not renew source expiry on hits, rejects stale replacements, and bypass
   expect((await fetchDisplay(uncached, "edition", "JHN.3.16")).html).toBe("Fresh again");
 });
 
-it("does not return an in-flight cached display after a public purge", async () => {
+it.each([
+  { ttl: undefined, native: false }, { ttl: 0, native: false },
+  { ttl: undefined, native: true }, { ttl: 0, native: true },
+])("does not return an in-flight display after a public purge (TTL $ttl, native $native)", async ({ ttl, native }) => {
   let finish!: (value: Awaited<ReturnType<BibleProvider["getPassage"]>>) => void;
-  const provider: BibleProvider = { id: "pending", defaultVersionId: "edition", getPassage: () => new Promise((resolve) => { finish = resolve; }) };
+  const getPassage = () => new Promise<Awaited<ReturnType<BibleProvider["getPassage"]>>>((resolve) => { finish = resolve; });
+  const effects = { ...createAOLabProvider().effects, cacheTimeToLive: ttl, getPassageDisplay: () => Effect.promise(getPassage) };
+  const provider: BibleProvider = { id: "pending", defaultVersionId: "edition", cacheTimeToLive: ttl, getPassage, ...(native ? { effects } : {}) };
   const pending = fetchDisplay(provider, "edition", "JHN.3.16");
   await vi.waitFor(() => expect(finish).toBeDefined());
-  await createScriptureClient({ provider }).clearCache();
+  await createScriptureClient({ provider: native ? effects : provider }).clearCache();
   finish({ html: "Withdrawn", version: { id: "edition", title: "Test", abbreviation: "T" }, attribution: "Owner" });
   await expect(pending).rejects.toMatchObject({ code: "unavailable" });
+});
+
+it("rejects malformed browser catalogs without poisoning shared data discovery", async () => {
+  let id = "";
+  const provider: BibleProvider = {
+    id: "catalog", defaultVersionId: "edition",
+    async listVersions() { return [{ id, title: "Test", abbreviation: "T" }]; },
+    async getPassage() { throw new Error("Unused"); },
+  };
+  await expect(listBibleVersions({ provider })).rejects.toMatchObject({ code: "invalid_response" });
+  id = "corrected";
+  expect((await createScriptureClient({ provider }).listVersions())[0].id).toBe("corrected");
 });
