@@ -47,9 +47,9 @@ it("discovers actual versions, localized books and chapters through both data su
 it("preserves asymmetric range text, internal breaks, source numbering gaps and full single-chapter books", async () => {
   const { client, native, provider } = setup();
   const data = await client.getPassage({ passageId: "JHN.3.2-4", versionId: "pddpt" });
-  expect(data).toMatchObject({ provider: "bible-api", reference: "Juan 3:2-4", text: "<script>literal</script> & words. Last.", numbering: "unknown", version: { id: "pddpt", sourceLanguage: "spa" } });
+  expect(data).toMatchObject({ provider: "bible-api", reference: "Juan 3:2-4", text: "<script>literal</script> & words.\nLast.", numbering: "unknown", version: { id: "pddpt", sourceLanguage: "spa" } });
   expect(await Effect.runPromise(native.getPassage({ passageId: "JHN.3.2-4", versionId: "pddpt" }))).toEqual(data);
-  expect((await client.getPassage({ passageId: "JUD.1" })).text).toBe("First.\nSecond line. <script>literal</script> & words. Last.");
+  expect((await client.getPassage({ passageId: "JUD.1" })).text).toBe("First.\nSecond line.\n<script>literal</script> & words.\nLast.");
   expect((await client.getPassage({ passageId: "JUD.1.1" })).text).toBe("First.\nSecond line.");
   await expect(client.getPassage({ passageId: "JHN.3.1-5" })).rejects.toMatchObject({ code: "unavailable" });
   await expect(client.getPassage({ passageId: "JHN.3.4-2" })).rejects.toMatchObject({ code: "invalid_reference" });
@@ -60,7 +60,25 @@ it("preserves asymmetric range text, internal breaks, source numbering gaps and 
   expect(display.stylesheets).toBeUndefined();
   expect(display.attribution).toBe(data.attribution.text);
   expect(display.attributionHtml).toContain('href="https://creativecommons.org/licenses/by-sa/4.0/"');
+  expect(display.attributionHtml).toContain('href="https://github.com/seven1m/open-bibles#translation-details"');
+  expect(data.instructions).toContainEqual(expect.objectContaining({ code: "bible-api-source", text: expect.stringContaining("Psalm superscriptions") }));
   expect(data.display.nativeHtml).toBeUndefined();
+});
+
+it("keeps received Unicode, punctuation and whitespace verbatim within verse-per-line text", async () => {
+  const { transport, client, provider } = setup();
+  const first = "“LORD,”\r\n\u00a0e\u0301 / <literal> & words.\n";
+  const second = " «Otra voz»; בְּ/רֵאשִׁ֖יתבָּרָ֣א ";
+  transport.mockResolvedValue(Response.json({ translation: web, verses: [
+    { book_id: "PSA", book: "Psalms", chapter: 23, verse: 1, text: first },
+    { book_id: "PSA", book: "Psalms", chapter: 23, verse: 2, text: second },
+  ] }));
+  expect((await client.getPassage({ passageId: "PSA.23.1-2" })).text).toBe(first + "\n" + second);
+  expect((await client.getPassage({ passageId: "PSA.23.1" })).text).toBe(first);
+  const display = await provider.getPassage("web", "PSA.23.1-2");
+  expect(display.html).toContain("“LORD,”\r\n\u00a0e\u0301 / &lt;literal&gt; &amp; words.\n");
+  expect(display.html).toContain(second);
+  expect(display.attribution).toContain("Plain-text extract:");
 });
 
 it("keeps edition-specific rights and Hebrew warnings outside unaltered Scripture", async () => {
@@ -93,7 +111,9 @@ it.each([
   expect(data.attribution.text).toContain(license);
   expect(data.licenses[0].name).toBe(license);
   expect(data.licenses[0].restrictions).toBeUndefined();
-  expect((await provider.getPassage("web", "JHN.3.1")).attribution).toBe(data.attribution.text);
+  const display = await provider.getPassage("web", "JHN.3.1");
+  expect(display.attribution).toBe(data.attribution.text);
+  expect(display.attributionHtml).toContain('href="https://github.com/seven1m/open-bibles#translation-details"');
 });
 
 it.each([
@@ -168,5 +188,5 @@ it("has no native daily calendar and only uses AO Lab's calendar when explicitly
   vi.spyOn(FreeUseBibleApi.prototype, "getVerseOfTheDay").mockResolvedValue({ book: "JHN", chapter: 3, verse: 2, endVerse: 4, categories: [] });
   const daily = await client.getVerseOfTheDay({ calendarSource: "ao-lab", date: "2026-11-14" });
   expect(daily.calendarSource.provider).toBe("helloao");
-  expect(daily.passage).toMatchObject({ provider: "bible-api", passageId: "JHN.3.2-4", text: "<script>literal</script> & words. Last." });
+  expect(daily.passage).toMatchObject({ provider: "bible-api", passageId: "JHN.3.2-4", text: "<script>literal</script> & words.\nLast." });
 });

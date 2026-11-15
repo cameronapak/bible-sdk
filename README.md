@@ -373,6 +373,8 @@ Set `usage.commercial` to your application's actual use before discovery. The ex
 
 ### bible-api.com: key-free or self-hosted
 
+**Source builds only until the next package release.** The published npm package and CDN scripts at 0.10.2 do not include this adapter. The examples below describe the source implementation; do not use its provider import with 0.10.2. Other published providers and the pinned CDN examples remain usable.
+
 ```ts
 import { createScriptureClient } from "@faith-tools/bible-sdk/data";
 import { createBibleApiProvider } from "@faith-tools/bible-sdk/providers/bible-api";
@@ -397,7 +399,13 @@ scriptureInline({ root: document.querySelector("article")!, provider });
 
 Individual passage and translation-picker elements also accept `element.bibleProvider = provider`. Remove any `provider` attribute because it takes precedence. There is no `provider="bible-api"` script-tag option. The passage input remains the existing local English reference input, not a localized provider catalog.
 
-**Source text and rights:** this service returns plain verse text, not native HTML, poetry structure, headings, or red-letter markers. The adapter generates escaped display HTML, preserves internal breaks, and displays edition/license/source attribution separately. Verse-number controls work; missing rich formatting cannot be restored by component controls. Preserve the exact returned notices and license links: Spanish editions include CC BY and CC BY-SA conditions. A Public Domain label is the source's assertion, not a worldwide rights guarantee. Review the [source translation notices](https://github.com/seven1m/open-bibles#translation-details) and returned instructions; unknown license wording is not unrestricted permission.
+**Plain-text extract:** this service does not supply the publisher's full text/layout. Psalm superscriptions, headings, notes, translator emphasis, poetry structure and red-letter markers may be missing. Verse-number controls cannot recover missing content.
+
+The adapter preserves received Unicode, punctuation and internal line breaks and adds one line break between verses in data and escaped display HTML. This is SDK verse-per-line formatting, not restored publisher layout. A visible source-format notice sits below Scripture and is also in attribution and the `bible-api-source` instruction for data/agent consumers. Preserve it when rendering.
+
+**Source rights:** keep the exact returned creator/copyright/license notices. CC editions visibly link both the license and [imported source/rights notices](https://github.com/seven1m/open-bibles#translation-details). Newer publisher revisions do not silently replace an older import's text or rights. A Public Domain label is the source's assertion, not a worldwide rights guarantee; unknown license wording is not unrestricted permission.
+
+[ADR 0001](https://github.com/cameronapak/bible-sdk/blob/main/docs/decisions/0001-bible-api-plain-text.md) records the evidence, alternatives and limits. No headings, poetry or Hebrew word boundaries are inferred, and no other provider is fetched to fill gaps.
 
 **Hebrew source warning:** `leningrad` contains joined words and slash markers. The adapter returns it unchanged with RTL direction, a `bible-api-hebrew-source` instruction, and a visible source-text warning below Scripture. It is not a verified reader-quality Hebrew edition. It does not repair spaces, call it WLC, hide the edition, or substitute another source. Choose a Hebrew-capable font through `--scripture-font-family`; the adapter does not supply fonts.
 

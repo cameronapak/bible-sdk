@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { FreeUseBibleApi, type ApiTranslationBookChapter } from "free-use-bible-api";
 import type { BibleProvider } from "./providers";
 import { createScriptureClient } from "./data";
+import { createBibleApiProvider } from "./providers/bible-api";
 
 // jsdom has no matchMedia, which the passage module reads when it loads.
 window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
@@ -23,6 +24,34 @@ HTMLElement.prototype.animate = () => ({ finished: Promise.resolve() }) as unkno
 function nextEvent(element: HTMLElement, name = "scripture-load"): Promise<CustomEvent> {
   return new Promise((resolve) => element.addEventListener(name, (event) => resolve(event as CustomEvent), { once: true }));
 }
+
+it("renders Bible API extract limits and CC source rights outside unchanged verse text", async () => {
+  const text = "“Primera línea.”\nSegunda: e\u0301 & <literal>.";
+  const license = "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); © Invented rights holder";
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+    translation: { identifier: "vbl", name: "Invented Spanish fixture", language: "Spanish", language_code: "spa", license },
+    verses: [{ book_id: "PSA", book: "Salmos", chapter: 23, verse: 1, text }],
+  }));
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = createBibleApiProvider();
+  passage.setAttribute("bible-version-id", "vbl");
+  passage.setAttribute("passage-id", "PSA.23.1");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  const root = passage.shadowRoot!;
+  expect(root.querySelector('[part="text"]')?.textContent).toContain(text);
+  expect(root.querySelector('[part="text"] literal')).toBeNull();
+  expect(root.querySelector('[part="text"]')?.textContent).not.toContain("Plain-text extract:");
+  const attribution = root.querySelector('[part="attribution"]')!;
+  expect(attribution.textContent).toContain(license);
+  expect(attribution.textContent).toContain("Psalm superscriptions");
+  expect([...attribution.querySelectorAll("a")].map(a => a.href)).toEqual([
+    "https://creativecommons.org/licenses/by-sa/4.0/",
+    "https://github.com/seven1m/open-bibles#translation-details",
+    "https://bible-api.com/",
+  ]);
+});
 
 it("exposes reporting only after a styled display loads, including cached displays, without reporting layout changes", async () => {
   const reporting = { kind: "api-bible-fums" as const, token: "invented-view-token" };

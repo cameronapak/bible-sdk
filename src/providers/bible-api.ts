@@ -12,6 +12,7 @@ const ttl = "24 hours";
 const ttlMillis = 24 * 60 * 60 * 1000;
 const termsUrl = "https://bible-api.com/";
 const rightsUrl = "https://github.com/seven1m/open-bibles#translation-details";
+const formatNotice = "Plain-text extract: Psalm superscriptions, headings, notes, translator emphasis and poetry structure may be missing. Verse-per-line layout is SDK formatting, not publisher layout.";
 const hebrewWarning = "Source text warning: the Leningrad source contains joined words and slash markers. Text is returned unchanged; it is not a verified reader-quality Hebrew edition.";
 const positive = Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(Number.MAX_SAFE_INTEGER));
 const translation = Schema.Struct({
@@ -77,12 +78,12 @@ export function createBibleApiProvider({ baseUrl = "https://bible-api.com" }: Bi
     const item = data.translation;
     const licenseLinks = [...item.license.matchAll(/https?:\/\/[^\s)]+/g)].map(([link]) => link);
     const hebrew = item.identifier === "leningrad";
-    const attribution = `${item.name}. ${item.license} · Source: Bible API${hebrew ? ` · ${hebrewWarning}` : ""}`;
+    const attribution = `${item.name}. ${item.license} · Source: Bible API · ${formatNotice}${hebrew ? ` · ${hebrewWarning}` : ""}`;
     const result: ScripturePassage = {
       provider: "bible-api", source: { url: url(id, range.book, range.chapter), versionId: id },
       requestedPassageId: passageId, passageId,
       reference: `${verses[0].book} ${range.chapter}${range.first === undefined ? "" : `:${range.first}${range.last === range.first ? "" : `-${range.last}`}`}`,
-      text: verses.map((verse) => verse.text).join(" "),
+      text: verses.map((verse) => verse.text).join("\n"),
       version: { ...version(item), sourceLanguage: item.language_code },
       attribution: { text: attribution, urls: [...new Set([endpoint, rightsUrl, ...licenseLinks])] },
       licenses: [{ name: item.license, url: licenseLinks[0] || rightsUrl }],
@@ -90,7 +91,7 @@ export function createBibleApiProvider({ baseUrl = "https://bible-api.com" }: Bi
       display: { format: "text", whitespace: "pre-wrap", attributionPlacement: "after-passage", language: version(item).language, direction: new Intl.Locale(item.language_code).language === "he" ? "rtl" : "ltr" },
       instructions: [
         ...textInstructions(),
-        { code: "bible-api-source", level: "notice", appliesTo: "all", text: "Bible API supplies plain verse text, not native HTML, headings, poetry structure, or red-letter formatting. Source numbering is not mapped to another edition.", urls: [termsUrl] },
+        { code: "bible-api-source", level: "notice", appliesTo: "all", text: `${formatNotice} Received verse strings, including Unicode, punctuation and internal line breaks, are preserved; the SDK adds a line break between verses. Missing content and red-letter markers cannot be reconstructed from this JSON. Source numbering is not mapped to another edition. Preserve the visible source-format notice when rendering.`, urls: [termsUrl, rightsUrl] },
         { code: "bible-api-hosted-limits", level: "required", appliesTo: "all", text: "The public bible-api.com service allows 15 requests per 30 seconds per IP, prohibits whole-Bible downloads, and guarantees neither availability nor correctness. This adapter does not retry automatically. Independent clients can share an IP quota; self-hosted deployments have their own policies.", urls: [termsUrl] },
         { code: "bible-api-license", level: "required", appliesTo: "all", text: `Preserve this edition's notice: ${item.license}. Follow its source terms. Creative Commons editions require attribution and license links and may require change notices and share-alike licensing of adaptations. A Public Domain label is the provider's assertion, not a worldwide rights guarantee.`, urls: [rightsUrl, ...licenseLinks] },
         ...(hebrew ? [{ code: "bible-api-hebrew-source", level: "notice" as const, appliesTo: "all" as const, text: hebrewWarning, urls: ["https://github.com/seven1m/open-bibles#hebrew-leningrad-codex"] }] : []),
@@ -122,9 +123,9 @@ export function createBibleApiProvider({ baseUrl = "https://bible-api.com" }: Bi
     getPassageDisplay: Effect.fn("bibleApi.getPassageDisplay")(function*(id, passageId) {
       const { data, verses } = yield* passage(id, passageId);
       return {
-        html: verses.map((verse) => `<span class="scripture-verse" style="white-space:pre-wrap;overflow-wrap:anywhere"><sup class="scripture-verse-number">${verse.verse}</sup> ${escapeHtml(verse.text)}</span>`).join(" "),
+        html: verses.map((verse) => `<span class="scripture-verse" style="white-space:pre-wrap;overflow-wrap:anywhere"><sup class="scripture-verse-number">${verse.verse}</sup> ${escapeHtml(verse.text)}</span>`).join("<br>"),
         version: data.version, attribution: data.attribution.text,
-        attributionHtml: `${escapeHtml(data.version.title)}. ${attributionLink(data.licenses[0].name!, data.licenses[0].url)} · Source: ${attributionLink("Bible API", endpoint)}${id === "leningrad" ? ` · ${escapeHtml(hebrewWarning)}` : ""}`,
+        attributionHtml: `${escapeHtml(data.version.title)}. ${attributionLink(data.licenses[0].name!, data.licenses[0].url)}${data.licenses[0].url !== rightsUrl ? ` · ${attributionLink("Imported source/rights", rightsUrl)}` : ""} · Source: ${attributionLink("Bible API", endpoint)} · ${escapeHtml(formatNotice)}${id === "leningrad" ? ` · ${escapeHtml(hebrewWarning)}` : ""}`,
         instructions: data.instructions, licenses: data.licenses,
         direction: data.display.direction, containerAttributes: { class: "scripture-bible", lang: data.display.language || "" }, cache: data.cache,
       };
