@@ -13,7 +13,7 @@ Bible text comes from [AO Lab's Free Use Bible API](https://bible.helloao.org/do
 
 > Bible SDK is in preview. Expect changes before 1.0.
 
-> **Release availability:** The cache and attribution safeguards documented here were added after 0.10.1. They are not included in 0.10.1 or its pinned CDN scripts. Until a newer release containing these changes is published and installed, do not rely on full shared-cache purging, mounted expiry/detach cleanup, zero-TTL browser-cache bypass, or the expanded attribution links.
+> **Version requirement:** Use 0.10.2 or later for the cache and attribution safeguards documented here. Version 0.10.1 and older do not include full shared-cache purging, mounted expiry/detach cleanup, zero-TTL browser-cache bypass, or the expanded attribution links. Upgrade installed packages and pinned scripts before relying on these safeguards.
 
 ## Migrating from Scripture Inline
 
@@ -128,7 +128,7 @@ Add this script to register the browser components and turn Bible references int
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.10.1/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.10.2/dist/bible-sdk.js"
 ></script>
 ```
 
@@ -515,7 +515,7 @@ Add your app's authentication, rate limits, edition/access controls, and privacy
 
 `copyrightUrl` is required for display, not for plain-text data access. Every quotation page gets a visible link to it. Populate that app-owned page from sanitized `publisher.copyrightHtml` and `publisher.infoHtml`, the full translation name/abbreviation, the exact current dashboard/Appendix A citation, and a clickable rights-holder link. Check the result; raw metadata alone does not guarantee a complete notice. Applicable direct publisher formatting/citation agreements take precedence, and conflicts with API.Bible's remaining minimum requirements must be resolved before use.
 
-The following component lifecycle safeguards require a release containing the post-0.10.1 changes, not the pinned 0.10.1 script.
+The following component lifecycle safeguards require 0.10.2 or later.
 
 After rendering, `scripture-load.detail.reporting` carries the FUMS token and `detail.cache.expiresAt` carries the absolute refresh deadline. The component removes expired mounted text and requests a fresh display; an expired replacement causes an error instead of stale Scripture. The host must handle other retained copies and earlier revocations. `client.clearCache()` removes mounted passages sharing that browser provider without refetching; a server purge cannot notify a different browser realm by itself.
 
@@ -579,7 +579,7 @@ Script tags support AO Lab by default and YouVersion through explicit settings:
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.10.1/dist/bible-sdk.js"
+  src="https://cdn.jsdelivr.net/npm/@faith-tools/bible-sdk@0.10.2/dist/bible-sdk.js"
   data-provider="youversion"
   data-yvp-public-app-key="YOUR_PUBLIC_APP_KEY"
   data-bible-version-id="3034"
