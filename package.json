@@ -47,6 +47,10 @@
       "types": "./dist/types/providers/fetch-bible.d.ts",
       "default": "./dist/providers/fetch-bible.js"
     },
+    "./providers/bible-api": {
+      "types": "./dist/types/providers/bible-api.d.ts",
+      "default": "./dist/providers/bible-api.js"
+    },
     "./providers/api-bible": {
       "types": "./dist/types/providers/api-bible.d.ts",
       "browser": null,

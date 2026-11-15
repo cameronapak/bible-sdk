@@ -6,6 +6,7 @@ import { createHelloAOProvider } from "@faith-tools/bible-sdk/providers/helloao"
 import { createAOLabProvider, aoLabProvider } from "@faith-tools/bible-sdk/providers/ao-lab";
 import { createYouVersionProvider } from "@faith-tools/bible-sdk/providers/youversion";
 import { createFetchBibleProvider } from "@faith-tools/bible-sdk/providers/fetch-bible";
+import { createBibleApiProvider } from "@faith-tools/bible-sdk/providers/bible-api";
 import { createApiBibleProvider } from "@faith-tools/bible-sdk/providers/api-bible";
 import { createBibleClient } from "@americanbible/api-bible-sdk";
 
@@ -22,6 +23,9 @@ export function checkDataTypes(error: unknown) {
   const native = createEffectClient({ provider: aoLab });
   const promise: Promise<ScripturePassage> = regular.getPassage({ passageId: "JHN.3.16" });
   const effect: Effect.Effect<ScripturePassage, ScriptureError> = native.getPassage({ passageId: "JHN.3.16" });
+  const bibleApi = createBibleApiProvider();
+  const bibleApiPromise: Promise<ScripturePassage> = createScriptureClient({ provider: bibleApi }).getPassage({ passageId: "JUD.1" });
+  const bibleApiEffect: Effect.Effect<ScripturePassage, ScriptureError> = createEffectClient({ provider: bibleApi }).getPassage({ passageId: "JUD.1" });
   const apiPromise: Promise<ScripturePassage> = createScriptureClient({ provider: apiBible }).getPassage({ passageId: "JHN.3.16" });
   const apiEffect: Effect.Effect<ScripturePassage, ScriptureError> = createEffectClient({ provider: apiBible }).getPassage({ passageId: "JHN.3.16" });
   const dailyPromise: Promise<VerseOfTheDay> = regular.getVerseOfTheDay({ calendarSource: "ao-lab", date: "2026-12-25" });
@@ -29,6 +33,6 @@ export function checkDataTypes(error: unknown) {
   const nativeCalendar: boolean = regular.capabilities.verseOfTheDay;
   if (error instanceof ScriptureError) {
     const code: ScriptureErrorCode = error.code;
-    return { code, promise, effect, apiPromise, apiEffect, dailyPromise, dailyEffect, nativeCalendar, youversion, legacy, aoLabProvider };
+    return { code, promise, effect, bibleApiPromise, bibleApiEffect, apiPromise, apiEffect, dailyPromise, dailyEffect, nativeCalendar, youversion, legacy, aoLabProvider };
   }
 }

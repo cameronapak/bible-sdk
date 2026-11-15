@@ -68,7 +68,7 @@
         <img class="banner" src="./assets/banner.png" width="2533" height="718" alt="A passage input suggesting Isaiah 40:3, a Scripture card showing John 3:16 under a reference link, and a passage showing Isaiah 40:8" />
         <p class="text-muted-foreground">
           A community project. Bible text from AO Lab's Free Use Bible API, with no API key.
-          YouVersion, fetch.bible, and server-only API.Bible are optional adapters.
+          YouVersion, fetch.bible, bible-api.com, and server-only API.Bible are optional adapters.
           Use the DOM-free data API on its own, or add the reference finder and web components.
         </p>
         <p class="cluster">
@@ -146,11 +146,12 @@ console.log(daily.passage.attribution.text);</textarea>
               <tr><td>AO Lab</td><td>Supported</td><td>Its SDK follows a shared, deterministic yearly order with Christian holidays, using an <a href="https://bible.helloao.org/docs/reference/datasets/#verse-of-the-day">MIT-licensed reference dataset</a>.</td></tr>
               <tr><td>YouVersion</td><td>Supported</td><td>Its <a href="https://developers.youversion.com/api/verse-of-the-days">calendar API</a> accepts day 1-366, with no year parameter. The SDK accepts only dates in the runtime's current year, not historical or future-year lookups. This does not promise a published schedule for future days.</td></tr>
               <tr><td>fetch.bible</td><td>No native calendar documented</td><td>Its <a href="https://fetch.bible/access/client/">client API</a> provides Bible text, not daily selections. Opt into the shared calendar.</td></tr>
+              <tr><td>bible-api.com</td><td>No native calendar documented</td><td>Random verses are not a daily calendar. Opt into the shared reference calendar.</td></tr>
               <tr><td>API.Bible</td><td>No native calendar documented</td><td>Its <a href="https://docs.api.bible/tutorials/verse-of-the-day">daily-verse tutorial</a> uses an app-owned reference list, not a calendar endpoint. Opt into the shared calendar with a data adapter.</td></tr>
             </tbody>
           </table>
         </div>
-        <p>Check <code>scripture.capabilities.verseOfTheDay</code> to label or disable a provider-calendar option: <code>true</code> for AO Lab and YouVersion, <code>false</code> for fetch.bible and API.Bible. This reports implementation, not credentials, translation availability, or rights. Without native support, the default call fails with <code>unsupported</code> and makes no calendar request. Existing custom providers remain compatible; an optional <code>BibleDataProvider.getVerseOfTheDay(date)</code> can return an Effect of <code>{ passageId, sourceUrl }</code>.</p>
+        <p>Check <code>scripture.capabilities.verseOfTheDay</code> to label or disable a provider-calendar option: <code>true</code> for AO Lab and YouVersion, <code>false</code> for fetch.bible, bible-api.com, and API.Bible. This reports implementation, not credentials, translation availability, or rights. Without native support, the default call fails with <code>unsupported</code> and makes no calendar request. Existing custom providers remain compatible; an optional <code>BibleDataProvider.getVerseOfTheDay(date)</code> can return an Effect of <code>{ passageId, sourceUrl }</code>.</p>
         <h3>Use the shared reference calendar</h3>
         <p>Opt in explicitly with any data provider. Only the reference comes from AO Lab; Scripture text still comes from your selected provider and version.</p>
         <sensible-code language="js" data-wrap="true">
@@ -174,6 +175,7 @@ console.log(daily.passage.attribution.text);</textarea>
             <tbody>
               <tr><td><a href="https://bible.helloao.org/docs/">AO Lab</a></td><td>No API key. Default provider.</td><td><code>BSB</code></td></tr>
               <tr><td><a href="https://fetch.bible/">fetch.bible</a></td><td>No API key. Declare your usage.</td><td><code>eng_bsb</code></td></tr>
+              <tr><td><a href="https://bible-api.com/">bible-api.com</a></td><td>No API key. Browser or server; optional self-hosted base URL.</td><td><code>web</code></td></tr>
               <tr><td><a href="https://platform.youversion.com/">YouVersion</a></td><td>Requires a public app key.</td><td><code>3034</code></td></tr>
               <tr><td><a href="https://api.bible/">API.Bible</a></td><td>Your own private key and official SDK client, server-only.</td><td>Explicitly choose an accessible edition.</td></tr>
             </tbody>
@@ -220,6 +222,38 @@ const passage = await scripture.getPassage({ passageId: "JHN.3.16" });
 console.log(passage.text, passage.attribution);</textarea>
             </sensible-code>
             <p>Set <code>usage.commercial</code> to your application's actual use before discovery. Revenue-generating apps must not copy the example's <code>false</code> unchanged. The <code>derivatives</code>, <code>attributionless</code>, and <code>limitless</code> filters default to <code>false</code>, <code>false</code>, and <code>true</code>. Filters are not legal permission and do not evaluate <code>forbid_other</code>; read the full translation license. Multiple licenses are alternatives: choose a suitable one and preserve attribution, license/rights-holder links, and applicable share-alike/change notices. Service-level caching/offline permission and the client's MIT-0 code license do not waive edition-specific NC/ND or other conditions. The adapter uses the official collection.</p>
+          </div>
+        </details>
+        <details id="bible-api">
+          <summary>bible-api.com: key-free or self-hosted</summary>
+          <div class="stack">
+            <p role="note"><strong>Source builds only until the next package release.</strong> The published npm package and CDN scripts at 0.10.2 do not include this adapter. These examples describe the source implementation; do not use its provider import with 0.10.2. Other published providers and the pinned CDN examples remain usable.</p>
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { createScriptureClient } from "@faith-tools/bible-sdk/data";
+import { createBibleApiProvider } from "@faith-tools/bible-sdk/providers/bible-api";
+
+const provider = createBibleApiProvider(); // Optional { baseUrl: "https://example.com/bible" }
+const scripture = createScriptureClient({ provider }); // Default web
+const passage = await scripture.getPassage({ passageId: "JUD.1" }); // Whole chapter, not Jude 1:1
+console.log(passage.text, passage.attribution, passage.instructions);</textarea>
+            </sensible-code>
+            <p>The same provider works with <code>createScriptureClient</code> from <code>/data/effect</code>. It discovers live translations, books, and chapters and selects verses from parameterized chapter responses. Version IDs such as <code>web</code>, <code>pddpt</code>, and <code>leningrad</code> belong to this provider. Source numbering is preserved, not mapped to other editions. No private key or proxy is required; <code>baseUrl</code> accepts an HTTP(S) self-hosted origin and optional path without credentials, query, or fragment.</p>
+            <p>With a bundler, pass the same object to the existing components and reference finder:</p>
+            <sensible-code language="js" data-wrap="true">
+              <textarea readonly>import { defineScripturePassage, defineVersionInput, scriptureInline } from "@faith-tools/bible-sdk";
+
+defineScripturePassage({ provider });
+defineVersionInput({ provider });
+scriptureInline({ root: document.querySelector("article"), provider });</textarea>
+            </sensible-code>
+            <p>Individual passage and translation-picker elements accept <code>element.bibleProvider = provider</code>. Remove any <code>provider</code> attribute because it takes precedence. There is no <code>provider="bible-api"</code> script-tag option. The passage input remains the existing local English reference input, not a localized provider catalog.</p>
+            <p><strong>Plain-text extract:</strong> this service does not supply the publisher's full text/layout. Psalm superscriptions, headings, notes, translator emphasis, poetry structure and red-letter markers may be missing. Verse-number controls cannot recover missing content.</p>
+            <p>The adapter preserves received Unicode, punctuation and internal line breaks and adds one line break between verses in data and escaped display HTML. This is SDK verse-per-line formatting, not restored publisher layout. A visible source-format notice sits below Scripture and is also in attribution and the <code>bible-api-source</code> instruction for data/agent consumers. Preserve it when rendering.</p>
+            <p><strong>Source rights:</strong> keep the exact returned creator/copyright/license notices. CC editions visibly link both the license and <a href="https://github.com/seven1m/open-bibles#translation-details">imported source/rights notices</a>. Newer publisher revisions do not silently replace an older import's text or rights. A Public Domain label is the source's assertion, not a worldwide rights guarantee; unknown license wording is not unrestricted permission.</p>
+            <p><a href="https://github.com/cameronapak/bible-sdk/blob/main/docs/decisions/0001-bible-api-plain-text.md">ADR 0001</a> records the evidence, alternatives and limits. No headings, poetry or Hebrew word boundaries are inferred, and no other provider is fetched to fill gaps.</p>
+            <p role="note"><strong>Hebrew source warning:</strong> <code>leningrad</code> contains joined words and slash markers. The adapter returns it unchanged with RTL direction, a <code>bible-api-hebrew-source</code> instruction, and a visible source-text warning below Scripture. It is not a verified reader-quality Hebrew edition. The adapter does not repair spaces, call it WLC, hide the edition, or substitute another source. Choose a Hebrew-capable font through <code>--scripture-font-family</code>; the adapter does not supply fonts.</p>
+            <p><strong>Hosted limits and caching:</strong> bible-api.com allows 15 requests per 30 seconds per IP, prohibits whole-Bible downloads, and makes no availability/correctness guarantee. Requests are lazy and do not retry automatically. Discovery/chapter caches are bounded to 256 entries per cache with a 24-hour TTL. Data and displays retain the original chapter-fetch <code>cache.expiresAt</code>, including cache hits. Use the client's <code>clearCache()</code> for the shared purge path; provider-level <code>effects.clearCache</code> clears its payloads. No IP-wide quota enforcement or offline permission is implied. Hosted errors without CORS can appear as generic browser network failures. For sustained usage, consider <a href="https://github.com/seven1m/bible_api#hosting-it-yourself">self-hosting</a>.</p>
+            <p>No native daily calendar is supplied: <code>capabilities.verseOfTheDay</code> is <code>false</code>. Random is not daily. Explicitly set <code>calendarSource: "ao-lab"</code> to reuse AO Lab's reference calendar while fetching Scripture from this provider; missing content still fails rather than substitute a translation.</p>
           </div>
         </details>
         <details id="api-bible">
@@ -400,7 +434,7 @@ scriptureInline({ provider });</textarea>
             <thead><tr><th scope="col">Passage field</th><th scope="col">Meaning</th></tr></thead>
             <tbody>
               <tr><td><code>text</code></td><td>Plain Scripture without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain; rich formatting does not.</td></tr>
-              <tr><td><code>provider</code>, <code>source</code></td><td>Provider ID, source version ID, and URL: the AO Lab chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log.</td></tr>
+              <tr><td><code>provider</code>, <code>source</code></td><td>Provider ID, source version ID, and URL: the AO Lab or bible-api.com chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log.</td></tr>
               <tr><td><code>requestedPassageId</code>, <code>passageId</code>, <code>reference</code></td><td>Requested and resolved USFM IDs and a readable reference.</td></tr>
               <tr><td><code>version</code></td><td>ID, title, abbreviation, available language metadata, and the source language identifier.</td></tr>
               <tr><td><code>attribution</code>, <code>licenses</code></td><td>Attribution text, source/license URLs, and available restrictions. Missing metadata is not permission.</td></tr>
@@ -464,7 +498,7 @@ scriptureInline({ provider });</textarea>
           <div class="stack">
         <p>Async methods reject with the original <code>ScriptureError</code> for expected failures. Import it from <code>/data</code> and use <code>try</code>/<code>catch</code> with <code>error instanceof ScriptureError</code>. Programming defects are not converted to expected errors.</p>
         <p>Its <code>code</code> distinguishes <code>invalid_reference</code>, <code>unavailable</code>, <code>unsupported</code>, <code>authentication</code>, <code>rate_limit</code>, <code>network</code>, <code>timeout</code>, and <code>invalid_response</code>. Original diagnostics can remain in <code>cause</code>; do not expose them to readers. API.Bible discards upstream diagnostics and response-validation causes.</p>
-        <p>Built-in requests retry network and rate-limit failures twice, with exponential delays starting at 100ms and a 15-second deadline for each request's entire retry sequence. Other expected failures do not retry. Override <code>RequestPolicy</code> with <code>Effect.provideService</code>. Legacy Promise-only custom providers have a deadline but no automatic retries.</p>
+        <p>Built-in requests except bible-api.com retry network and rate-limit failures twice, with exponential delays starting at 100ms and a 15-second deadline for each request's entire retry sequence. Other expected failures do not retry. bible-api.com never retries automatically. Override <code>RequestPolicy</code> with <code>Effect.provideService</code>. Legacy Promise-only custom providers have a deadline but no automatic retries.</p>
         <p>Shared facade discovery/display caches and built-in adapter payload caches each hold at most 256 entries, not a byte limit. Upstream response memoization is disabled; failed or malformed payloads can be downloaded again.</p>
         <ul>
           <li>AO Lab shares validated chapters. fetch.bible shares whole books and retains its collection catalog and loaded localized book-name metadata, whose size depends on the collection.</li>
@@ -872,9 +906,9 @@ const english = versions.filter((version) => version.language === "en");</textar
         </p>
         <p>
           Bible SDK is an independent community project. It is not affiliated with, endorsed by, or supported
-          by YouVersion or Life.Church. AO Lab is the default Bible data source; YouVersion, fetch.bible, and server-only API.Bible are optional.
+          by YouVersion or Life.Church. AO Lab is the default Bible data source; YouVersion, fetch.bible, bible-api.com, and server-only API.Bible are optional.
         </p>
-        <p>Default Bible text from <a href="https://bible.helloao.org/docs/">AO Lab's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a>, <a href="https://fetch.bible/">fetch.bible</a>, and server-only <a href="https://api.bible/">API.Bible</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
+        <p>Default Bible text from <a href="https://bible.helloao.org/docs/">AO Lab's Free Use Bible API</a>, with optional <a href="https://developers.youversion.com/">YouVersion Platform</a>, <a href="https://fetch.bible/">fetch.bible</a>, <a href="https://bible-api.com/">bible-api.com</a>, and server-only <a href="https://api.bible/">API.Bible</a> support. References parsed by <a href="https://github.com/dpshde/grab-bcv">grab-bcv</a>, and links open <a href="https://route.bible">route.bible</a>, both by <a href="https://github.com/dpshde">Dylan Shade</a>. Styled with <a href="https://sensibleui.com">Sensible UI</a>.</p>
       </footer>
     </main>
     </sensible-sidebar-layout>
