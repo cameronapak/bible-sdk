@@ -22,7 +22,7 @@ const run = () =>
     trigger: data.trigger as Trigger | undefined,
     ...providerOptions,
     reference: data.reference as ReferenceLayout | undefined,
-    notes: data.notes !== undefined && data.notes !== "false",
+    notes: data.notes !== "hide" && data.notes !== "false",
   });
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run, { once: true });

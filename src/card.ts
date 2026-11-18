@@ -8,7 +8,7 @@ import { resolveProvider, type ProviderOptions } from "./providers";
 export type CardOptions = ProviderOptions & {
   /** How the card's passage shows its reference, as on <si-passage>. */
   reference: ReferenceLayout;
-  /** Show publisher footnotes, as with the notes attribute on <si-passage>. */
+  /** Show publisher footnotes. Default: true. false matches notes="hide" on <si-passage>. */
   notes?: boolean;
 };
 
@@ -19,7 +19,7 @@ const MARGIN = 8;
  * One Scripture card per page, rendered in a Shadow DOM so the host page's
  * CSS cannot reach it. `toggle(anchor)` opens it above the anchor.
  */
-export function createScriptureCard({ reference, notes = false, ...options }: CardOptions) {
+export function createScriptureCard({ reference, notes = true, ...options }: CardOptions) {
   defineScripturePassage();
   const provider = resolveProvider(options);
   const versionId = options.bibleVersionId || (provider.id === "youversion" && options.yvpBibleVersionId ? String(options.yvpBibleVersionId) : provider.defaultVersionId);
@@ -118,7 +118,7 @@ export function createScriptureCard({ reference, notes = false, ...options }: Ca
     text.setAttribute("passage-id", passageId);
     text.setAttribute("theme", "auto");
     text.setAttribute("reference", reference);
-    if (notes) text.setAttribute("notes", "");
+    if (!notes) text.setAttribute("notes", "hide");
     text.addEventListener("scripture-error", (event) => console.error("[scripture-inline]", (event as CustomEvent).detail));
     card.querySelector(".body")!.append(text);
     card.querySelector(".close")!.addEventListener("click", () => close());

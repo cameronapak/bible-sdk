@@ -98,11 +98,11 @@ const STYLES = `
   width: 2.3em; margin-inline: -2.3em -0.38em; padding-inline-end: 0.5em;
 }
 .scripture-bible .scripture-break { height: 0.625em; }
-/* Publisher footnotes show only with the notes attribute. Each note opens in a native popover,
+/* Publisher footnotes show unless notes="hide". Each note opens in a native popover,
    which sits in the top layer, so the Scripture never moves and a card's edges never clip it.
    user-select: none keeps notes out of copied Scripture. */
-.scripture-note { display: none; user-select: none; -webkit-user-select: none; }
-:host([notes]) .scripture-note { display: inline; }
+.scripture-note { display: inline; user-select: none; -webkit-user-select: none; }
+:host([notes="hide"]) .scripture-note { display: none; }
 .scripture-note-button {
   all: unset; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   width: 1.1em; height: 1.1em; margin-inline: 0.1em; vertical-align: 0.35em; border-radius: 0.25em;
@@ -230,7 +230,7 @@ const LAYOUTS: readonly ReferenceLayout[] = ["heading", "citation", "quote", "no
  * Displays Scripture with its required attribution. Works in the page or inside a shadow root.
  *
  * Attributes choose what shows: `reference`, `verse-numbers="hide"`, `red-letter="off"`,
- * `headings="hide"`, `notes`, `direction`, and `theme`. CSS properties choose how it looks:
+ * `headings="hide"`, `notes="hide"`, `direction`, and `theme`. CSS properties choose how it looks:
  * `--scripture-font-size`, `--scripture-line-height`, `--scripture-font-family`, `--scripture-max-width`.
  * Parts: `text`, `citation`, `version`, `attribution`, `quote`, `loader`, `error`.
  */

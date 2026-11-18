@@ -35,7 +35,7 @@ export const scripture = {
     yield* passageRange(passageId);
     const source = yield* BibleSource;
     const id = yield* version(source, versionId);
-    const passage = yield* source.getPassageData(id, passageId).pipe(Effect.flatMap(response(ScripturePassage)));
+    const passage = yield* source.getPassageData(id, passageId, { includeNotes }).pipe(Effect.flatMap(response(ScripturePassage)));
     return includeNotes ? { ...passage, notes: passage.notes ?? [] } : withoutNotes(passage);
   }),
   getVerseOfTheDay: Effect.fn("scripture.getVerseOfTheDay")(function*({ versionId, date, calendarSource = "provider" }: VerseOfTheDayOptions = {}) {
@@ -76,7 +76,7 @@ export function createScriptureClient({ provider = createAOLabProvider() }: { pr
     listVersions: () => cache.get("versions", () => source.listVersions().pipe(Effect.tap(response(Schema.Array(BibleVersion))))),
     listBooks: (id) => cache.get(JSON.stringify(["books", id]), () => source.listBooks(id).pipe(Effect.tap(response(Schema.Array(BibleBook))))),
     listChapters: (id, book) => cache.get(JSON.stringify(["chapters", id, book]), () => source.listChapters(id, book).pipe(Effect.tap(response(Schema.Array(BibleChapter))))),
-    getPassageData: (id, passageId) => source.getPassageData(id, passageId),
+    getPassageData: (id, passageId, options) => source.getPassageData(id, passageId, options),
     getVerseOfTheDay: source.getVerseOfTheDay ? (date) => source.getVerseOfTheDay!(date) : undefined,
     clearCache: cache.clear.pipe(Effect.andThen(source.clearCache)),
   });

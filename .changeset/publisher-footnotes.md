@@ -2,4 +2,4 @@
 "@faith-tools/bible-sdk": minor
 ---
 
-Add opt-in publisher footnotes for AO Lab. `getPassage({ includeNotes: true })` returns `notes` with each note's position in `text`, and the `notes` attribute shows a note button that opens the note in a popover, in passages and reference cards. Text without notes is unchanged.
+Add publisher footnotes for AO Lab and YouVersion. Passages and reference cards now show an asterisk button after each noted word that opens the note in a popover; set `notes="hide"` (or `notes: false`) to turn them off. In data, `getPassage({ includeNotes: true })` returns `notes` with each note's position in `text`, and text without notes is unchanged.

@@ -122,7 +122,8 @@ export interface BibleDataProvider {
   listVersions(): Effect.Effect<BibleVersion[], ScriptureError>;
   listBooks(versionId: string): Effect.Effect<BibleBook[], ScriptureError>;
   listChapters(versionId: string, bookId: string): Effect.Effect<BibleChapter[], ScriptureError>;
-  getPassageData(versionId: string, passageId: string): Effect.Effect<ScripturePassage, ScriptureError>;
+  /** Providers with `notes` return `notes` when `includeNotes` is set; others ignore the option. */
+  getPassageData(versionId: string, passageId: string, options?: { includeNotes?: boolean }): Effect.Effect<ScripturePassage, ScriptureError>;
   /** Optional native reference calendar. Text is always resolved through getPassageData. */
   getVerseOfTheDay?(date: string): Effect.Effect<DailyVerseReference, ScriptureError>;
   readonly clearCache: Effect.Effect<void>;

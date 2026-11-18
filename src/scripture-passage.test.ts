@@ -374,7 +374,6 @@ it("renders publisher notes as labeled buttons outside the Scripture text", asyn
     version: { id: "notes", title: "Notes", abbreviation: "N" }, attribution: "Owner",
   }) };
   passage.setAttribute("passage-id", "JHN.3.16");
-  passage.setAttribute("notes", "");
   const loaded = nextEvent(passage);
   document.body.append(passage);
   await loaded;

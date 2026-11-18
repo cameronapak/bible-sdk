@@ -77,6 +77,26 @@ it.effect("uses YouVersion's current-year day number across leap day without DST
   expect(yield* Effect.flip(client.getVerseOfTheDay({ date: "2028-01-01" }))).toMatchObject({ code: "invalid_response" });
 }));
 
+it.effect("places YouVersion footnotes in plain text, skipping verse labels, references, and cross references", () => Effect.gen(function*() {
+  const client = createScriptureClient({ provider: createYouVersionProvider({ yvpPublicAppKey: "test" }) });
+  expect(client.capabilities.notes).toBe(true);
+  vi.mocked(youversion.getVerses).mockResolvedValue({ data: [{ id: "15" }, { id: "16" }] } as Awaited<ReturnType<typeof youversion.getVerses>>);
+  vi.mocked(youversion.getVersion).mockResolvedValue({ id: 3034, localized_title: "BSB", localized_abbreviation: "BSB", language_tag: "en", copyright: "Required notice" } as Awaited<ReturnType<typeof youversion.getVersion>>);
+  const text = "that everyone may have life. For God gave His one and only Son.";
+  vi.mocked(youversion.getPassage).mockImplementation(async (_client, _version, id, format) => ({ id, reference: "John 3:15-16", content: format === "text" ? text
+    : '<div class="p"><span class="yv-v" v="15"></span><span class="yv-vlbl">15</span>that everyone may have life.<span class="yv-n x"><span class="xt">Num 21:9</span></span><span class="yv-n f"><span class="fr">3:15 </span><span class="ft">Or </span><span class="fqa">in Him</span><span class="ft">.</span></span> <span class="yv-v" v="16"></span><span class="yv-vlbl">16</span> <span class="wj">For God gave <span class="add">His</span> one and only</span> <span class="yv-n f"><span class="fr">3:16 </span><span class="ft">Or </span><span class="fqa">unique</span><span class="ft"> ; &amp; more</span></span><span class="wj">Son.</span></div>' }));
+  const passage = yield* client.getPassage({ versionId: "3034", passageId: "JHN.3.15-16", includeNotes: true });
+  expect(passage.text).toBe(text);
+  expect(passage.notes).toEqual([
+    { passageId: "JHN.3.15", offset: "that everyone may have life.".length, text: "Or in Him." },
+    { passageId: "JHN.3.16", offset: text.indexOf(" Son."), text: "Or unique; & more" },
+  ]);
+  // Without includeNotes, YouVersion's HTML is not requested.
+  vi.mocked(youversion.getPassage).mockClear();
+  expect(yield* client.getPassage({ versionId: "3034", passageId: "JHN.3.15-16" })).not.toHaveProperty("notes");
+  expect(vi.mocked(youversion.getPassage).mock.calls.map((call) => call[3])).toEqual(["text"]);
+}));
+
 it.effect("validates dates and calendar references, and evaluates today when the Effect runs", () => Effect.gen(function*() {
   const calendar = vi.spyOn(FreeUseBibleApi.prototype, "getVerseOfTheDay").mockResolvedValue(null);
   const client = createScriptureClient();

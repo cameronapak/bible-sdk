@@ -22,7 +22,7 @@ export type ScriptureInlineOptions = ProviderOptions & {
   trigger?: Trigger;
   /** Where a card shows the reference: "heading", "citation", "quote", or "none". Default: "heading". */
   reference?: ReferenceLayout;
-  /** Show publisher footnotes in cards behind a note button, as with the notes attribute. Default: false. */
+  /** Show publisher footnotes in cards behind a note button. Default: true. false matches notes="hide". */
   notes?: boolean;
   /** Where to look for references. Default: the whole page, including a body that replaces it. */
   root?: Node;
@@ -61,7 +61,7 @@ export function scriptureInline({
   mode = "card",
   trigger = "click",
   reference = "heading",
-  notes = false,
+  notes = true,
   root,
   watch = true,
   ...providerOptions
