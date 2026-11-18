@@ -91,6 +91,16 @@ it.effect("places YouVersion footnotes in plain text, skipping verse labels, ref
     { passageId: "JHN.3.15", offset: "that everyone may have life.".length, text: "Or in Him." },
     { passageId: "JHN.3.16", offset: text.indexOf(" Son."), text: "Or unique; & more" },
   ]);
+  // Entities and single quotes decode like HTML. Different Scripture of the same length places nothing.
+  const cases: [string, string, number[]][] = [
+    ["God’s Son.", "<span class='yv-v' v='16'></span>God&rsquo;s<span class='yv-n f'><span class='ft'>Note</span></span> Son.", [5]],
+    ["Word—next.", '<span class="yv-v" v="16"></span>Word&mdash;<span class="yv-n f"><span class="ft">Note</span></span>next.', [5]],
+    ["Alpha beta.", '<span class="yv-v" v="16"></span>His<span class="yv-n f"><span class="ft">Note</span></span> one Son.', []],
+  ];
+  for (const [plain, html, offsets] of cases) {
+    vi.mocked(youversion.getPassage).mockImplementation(async (_client, _version, id, format) => ({ id, reference: "John 3:16", content: format === "text" ? plain : html }));
+    expect((yield* client.getPassage({ versionId: "3034", passageId: "JHN.3.16", includeNotes: true })).notes!.map((note) => note.offset)).toEqual(offsets);
+  }
   // Without includeNotes, YouVersion's HTML is not requested.
   vi.mocked(youversion.getPassage).mockClear();
   expect(yield* client.getPassage({ versionId: "3034", passageId: "JHN.3.15-16" })).not.toHaveProperty("notes");

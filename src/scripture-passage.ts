@@ -292,6 +292,15 @@ export class ScripturePassage extends HTMLElement {
     note.dataset.side = above ? "above" : "below";
   }
 
+  /** Listeners and the pending frame that keep an open note placed. */
+  private noteFollow?: AbortController;
+
+  /** Stops placing the open note. Content replacement removes a popover without a closing toggle. */
+  private releaseNote(): void {
+    this.noteFollow?.abort();
+    this.noteFollow = undefined;
+  }
+
   /** Links each note button to its popover and keeps it placed while it is open. */
   private wireNotes(scripture: HTMLElement): void {
     for (const note of scripture.querySelectorAll<HTMLElement>(".scripture-note")) {
@@ -300,20 +309,26 @@ export class ScripturePassage extends HTMLElement {
       if (!button || !text || !("popover" in text)) continue;
       text.popover = "auto";
       button.popoverTargetElement = text;
-      let follow: AbortController | undefined;
       // beforetoggle fires before the popover shows. A mouse click opens it after the microtask,
       // so place again in the next frame, which still runs before the first paint.
       text.addEventListener("beforetoggle", (event) => {
         const open = (event as ToggleEvent).newState === "open";
         button.setAttribute("aria-expanded", String(open));
-        follow?.abort();
+        this.releaseNote();
         if (!open) return;
-        follow = new AbortController();
-        const place = () => this.placeNote(text, button);
+        const follow = (this.noteFollow = new AbortController());
+        const { signal } = follow;
+        const place = () => { if (!signal.aborted) this.placeNote(text, button); };
         queueMicrotask(place);
-        requestAnimationFrame(place);
-        addEventListener("scroll", place, { capture: true, passive: true, signal: follow.signal });
-        addEventListener("resize", place, { passive: true, signal: follow.signal });
+        const frame = requestAnimationFrame(place);
+        signal.addEventListener("abort", () => cancelAnimationFrame(frame));
+        // Scroll events do not cross shadow boundaries, so also listen in each shadow root
+        // around the passage, such as a Scripture card's scrolling body.
+        for (let root = this.getRootNode(); root instanceof ShadowRoot; root = root.host.getRootNode()) {
+          root.addEventListener("scroll", place, { capture: true, passive: true, signal });
+        }
+        addEventListener("scroll", place, { capture: true, passive: true, signal });
+        addEventListener("resize", place, { passive: true, signal });
       });
     }
   }
@@ -336,6 +351,7 @@ export class ScripturePassage extends HTMLElement {
     this.cancelLoad?.();
     this.cancelExpiry?.();
     this.cancelCache?.();
+    this.releaseNote();
     this.loaded = null;
     this.root.replaceChildren();
   }
@@ -391,6 +407,7 @@ export class ScripturePassage extends HTMLElement {
   /** Swaps the reference layout in place. Only the label moves, so there is no loader or grow. */
   private relayout(): void {
     if (!this.loaded || this.getAttribute("aria-busy")) return;
+    this.releaseNote();
     this.root.replaceChildren(...this.compose(this.loaded.display, this.loaded.passageId));
     this.applyTheme();
   }
@@ -455,6 +472,7 @@ export class ScripturePassage extends HTMLElement {
     loading.setAttribute("role", "status");
     loading.setAttribute("aria-label", "Loading Bible text");
     loading.innerHTML = LOADER_SVG;
+    this.releaseNote();
     this.root.replaceChildren(loading);
   }
 
@@ -464,6 +482,7 @@ export class ScripturePassage extends HTMLElement {
     alert.setAttribute("part", "error");
     alert.textContent = message;
     this.removeAttribute("aria-busy");
+    this.releaseNote();
     this.root.replaceChildren(alert);
   }
 
@@ -529,6 +548,7 @@ export class ScripturePassage extends HTMLElement {
       }
 
       const from = this.offsetHeight;
+      this.releaseNote();
       this.root.replaceChildren(...parts);
       this.root.style.minHeight = "";
       this.loaded = { display, passageId };

@@ -152,13 +152,21 @@ const NOTE_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" s
 export const noteHtml = (label: string, text: string) =>
   `<span class="scripture-note"><button type="button" class="scripture-note-button" aria-expanded="false" aria-label="${escapeHtml(label)}">${NOTE_ICON}</button><span class="scripture-note-text" role="note">${escapeHtml(text)}</span></span>`;
 
+// Named entities that appear in Bible HTML. An unknown entity stays as written, so the
+// Scripture comparison below fails and the note is left out rather than misplaced.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0", rsquo: "\u2019", lsquo: "\u2018", rdquo: "\u201d", ldquo: "\u201c",
+  mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", thinsp: "\u2009", ensp: "\u2002", emsp: "\u2003", zwj: "\u200d", zwnj: "\u200c", lrm: "\u200e", rlm: "\u200f",
+};
 const decodeEntities = (text: string) => text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
-  if (code[0] === "#") return String.fromCodePoint(code[1]!.toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1)));
-  return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" } as Record<string, string>)[code.toLowerCase()] ?? entity;
+  if (code[0] !== "#") return NAMED_ENTITIES[code.toLowerCase()] ?? entity;
+  const point = code[1]!.toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+  return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
 });
 const isVoidTag = (tag: string) => /^<(br|hr|img|wbr)\b/i.test(tag) || tag.endsWith("/>");
-const classesOf = (tag: string) => tag.match(/\bclass="([^"]*)"/)?.[1]!.split(/\s+/) ?? [];
-const nonSpaceLength = (text: string) => text.replace(/\s/g, "").length;
+const attribute = (tag: string, name: string) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"))?.slice(1).find((value) => value !== undefined);
+const classesOf = (tag: string) => attribute(tag, "class")?.split(/\s+/) ?? [];
+const withoutSpace = (text: string) => text.replace(/\s/g, "");
 
 /** A YouVersion note's text, without its "3:16" reference, as plain text. */
 function noteText(html: string): string {
@@ -181,7 +189,9 @@ function noteText(html: string): string {
 function youversionNotes(html: string, text: string, book: string, chapter: number) {
   const found: { verse: number; before: number; html: string }[] = [];
   const open: string[][] = [];
-  let verse = 0, before = 0, depth = 0;
+  let verse = 0, depth = 0;
+  // The Scripture the HTML contains, without whitespace. A note's position is its length so far.
+  let scripture = "";
   let note: { verse: number; before: number; html: string; keep: boolean } | undefined;
   for (const token of html.split(/(<[^>]*>)/)) {
     if (!token) continue;
@@ -197,15 +207,16 @@ function youversionNotes(html: string, text: string, book: string, chapter: numb
     else if (token.startsWith("<")) {
       if (isVoidTag(token)) continue;
       const classes = classesOf(token);
-      const number = token.match(/\bv="(\d+)"/)?.[1];
-      if (classes.includes("yv-v") && number) verse = Number(number);
+      const number = attribute(token, "v");
+      if (classes.includes("yv-v") && number && /^\d+$/.test(number)) verse = Number(number);
       if (classes.includes("yv-n")) {
-        note = { verse, before, html: "", keep: classes.includes("f") };
+        note = { verse, before: scripture.length, html: "", keep: classes.includes("f") };
         depth = 1;
       } else open.push(classes);
-    } else if (!open.some((classes) => classes.includes("yv-vlbl"))) before += nonSpaceLength(decodeEntities(token));
+    } else if (!open.some((classes) => classes.includes("yv-vlbl"))) scripture += withoutSpace(decodeEntities(token));
   }
-  if (before !== nonSpaceLength(text)) return [];
+  // Place notes only when the HTML holds exactly the plain text's Scripture, character for character.
+  if (scripture !== withoutSpace(text)) return [];
   return found.flatMap((note) => {
     const content = noteText(note.html);
     if (!content || !note.verse) return [];
