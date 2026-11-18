@@ -1,17 +1,19 @@
 import { Clock, Effect, Layer, Schema } from "effect";
 import { createAOLabProvider, aoLabProvider, type BibleProvider } from "./providers.js";
-import { BibleBook, BibleChapter, BibleSource, BibleVersion, CalendarDate, DailyVerseReference, ScriptureError, ScripturePassage, VerseOfTheDay, type BibleDataProvider, type VerseOfTheDayOptions } from "./data-types.js";
+import { BibleBook, BibleChapter, BibleSource, BibleVersion, CalendarDate, DailyVerseReference, ScriptureError, ScripturePassage, VerseOfTheDay, type BibleDataProvider, type GetPassageOptions, type VerseOfTheDayOptions } from "./data-types.js";
 import { bookId, passageRange, providerCache } from "./data-helpers.js";
 import { decodeResponse as response, request } from "./runtime.js";
 
 export { BibleBook, BibleChapter, BibleSource, BibleVersion, DailyVerseReference, DisplayInstruction, ScriptureError, ScriptureErrorCode, ScripturePassage, VerseOfTheDay } from "./data-types.js";
-export type { BibleDataProvider, BibleDisplayProvider, VerseOfTheDayOptions } from "./data-types.js";
+export type { BibleDataProvider, BibleDisplayProvider, GetPassageOptions, VerseOfTheDayOptions } from "./data-types.js";
 export { RequestPolicy } from "./runtime.js";
 
 const VersionId = Schema.NonEmptyString.check(Schema.isTrimmed());
 const version = (provider: BibleDataProvider, value?: string) => Schema.decodeUnknownEffect(VersionId)(value ?? provider.defaultVersionId).pipe(
   Effect.mapError((cause) => new ScriptureError({ code: "unavailable", message: "Set a provider-specific version ID.", cause })),
 );
+const withoutNotes = ({ notes: _, ...passage }: ScripturePassage): ScripturePassage => passage;
+
 /** Service-based programs can use a test or application Layer without constructing a client. */
 export const scripture = {
   listVersions: Effect.fn("scripture.listVersions")(function*() {
@@ -29,11 +31,12 @@ export const scripture = {
     yield* bookId(book);
     return yield* source.listChapters(id, book).pipe(Effect.flatMap(response(Schema.Array(BibleChapter))));
   }),
-  getPassage: Effect.fn("scripture.getPassage")(function*({ versionId, passageId }: { versionId?: string; passageId: string }) {
+  getPassage: Effect.fn("scripture.getPassage")(function*({ versionId, passageId, includeNotes = false }: GetPassageOptions) {
     yield* passageRange(passageId);
     const source = yield* BibleSource;
     const id = yield* version(source, versionId);
-    return yield* source.getPassageData(id, passageId).pipe(Effect.flatMap(response(ScripturePassage)));
+    const passage = yield* source.getPassageData(id, passageId).pipe(Effect.flatMap(response(ScripturePassage)));
+    return includeNotes ? { ...passage, notes: passage.notes ?? [] } : withoutNotes(passage);
   }),
   getVerseOfTheDay: Effect.fn("scripture.getVerseOfTheDay")(function*({ versionId, date, calendarSource = "provider" }: VerseOfTheDayOptions = {}) {
     const now = new Date(yield* Clock.currentTimeMillis);
@@ -50,7 +53,7 @@ export const scripture = {
     const selected = yield* calendar.getVerseOfTheDay(calendarDate).pipe(Effect.flatMap(response(DailyVerseReference)));
     const range = yield* passageRange(selected.passageId).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_response", message: "The daily verse calendar returned an invalid passage ID.", cause })));
     if (range.first === undefined) return yield* new ScriptureError({ code: "invalid_response", message: "The daily verse calendar must select a verse or same-chapter range." });
-    const passage = yield* source.getPassageData(id, selected.passageId);
+    const passage = withoutNotes(yield* source.getPassageData(id, selected.passageId));
     return yield* response(VerseOfTheDay)({ date: calendarDate, calendarSource: { provider: calendar.id, sourceUrl: selected.sourceUrl }, passage });
   }),
   clearCache: Effect.gen(function*() { yield* (yield* BibleSource).clearCache; }),
@@ -69,6 +72,7 @@ export function createScriptureClient({ provider = createAOLabProvider() }: { pr
     id: source.id,
     defaultVersionId: source.defaultVersionId,
     cacheTimeToLive: source.cacheTimeToLive,
+    notes: source.notes,
     listVersions: () => cache.get("versions", () => source.listVersions().pipe(Effect.tap(response(Schema.Array(BibleVersion))))),
     listBooks: (id) => cache.get(JSON.stringify(["books", id]), () => source.listBooks(id).pipe(Effect.tap(response(Schema.Array(BibleBook))))),
     listChapters: (id, book) => cache.get(JSON.stringify(["chapters", id, book]), () => source.listChapters(id, book).pipe(Effect.tap(response(Schema.Array(BibleChapter))))),
@@ -78,11 +82,11 @@ export function createScriptureClient({ provider = createAOLabProvider() }: { pr
   });
   return {
     provider: source.id, layer,
-    capabilities: { verseOfTheDay: typeof source.getVerseOfTheDay === "function" },
+    capabilities: { verseOfTheDay: typeof source.getVerseOfTheDay === "function", notes: source.notes === true },
     listVersions: () => scripture.listVersions().pipe(Effect.provide(layer)),
     listBooks: (options: { versionId?: string } = {}) => scripture.listBooks(options).pipe(Effect.provide(layer)),
     listChapters: (options: { versionId?: string; bookId: string }) => scripture.listChapters(options).pipe(Effect.provide(layer)),
-    getPassage: (options: { versionId?: string; passageId: string }) => scripture.getPassage(options).pipe(Effect.provide(layer)),
+    getPassage: (options: GetPassageOptions) => scripture.getPassage(options).pipe(Effect.provide(layer)),
     getVerseOfTheDay: (options: VerseOfTheDayOptions = {}) => scripture.getVerseOfTheDay(options).pipe(Effect.provide(layer)),
     clearCache: () => scripture.clearCache.pipe(Effect.provide(layer)),
   };

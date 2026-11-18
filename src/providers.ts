@@ -79,7 +79,7 @@ const helloaoChapter = decodeResponse(Schema.Struct({
     license: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.String])))),
   }),
   book: Schema.Struct({ name: Schema.String }),
-  chapter: Schema.Struct({ content: chapterContent }),
+  chapter: Schema.Struct({ content: chapterContent, footnotes: Schema.optional(Schema.Array(Schema.Struct({ noteId: Schema.Number, text: Schema.String }))) }),
 }));
 const youversionList = <S extends Schema.Constraint & { DecodingServices: never }>(item: S) => decodeResponse(Schema.Struct({ data: Schema.Array(item) }));
 
@@ -135,6 +135,22 @@ function separator(before: string, after: string): string {
   return unspacedScript.test(before.at(-1)!) || unspacedScript.test(after[0]!) ? "" : " ";
 }
 
+// joinParts marks each footnote's place with its noteId; a selected verse adds its number.
+const NOTE_MARK = /\uE000(\d+)(?:\.(\d+))?\uE001/g;
+const unmarked = (text: string) => text.replace(NOTE_MARK, "");
+const markVerse = (text: string, verse: number) => text.replace(NOTE_MARK, (_, id) => `\uE000${id}.${verse}\uE001`);
+const footnoteText = (footnotes: readonly { noteId: number; text: string }[] = []) => new Map(footnotes.map((note) => [note.noteId, note.text.trim()]));
+
+// Lucide "asterisk" (ISC). An SVG, not a text "*", so it renders the same in every script and font.
+const NOTE_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m18.065 8.496-12.125 7"/><path d="m5.94 8.504 12.125 7"/></svg>';
+
+/**
+ * A publisher footnote: a button that opens its note in a popover. Components hide it unless the
+ * `notes` attribute is set. Custom display providers can emit this markup for their own notes.
+ */
+export const noteHtml = (label: string, text: string) =>
+  `<span class="scripture-note"><button type="button" class="scripture-note-button" aria-expanded="false" aria-label="${escapeHtml(label)}">${NOTE_ICON}</button><span class="scripture-note-text" role="note">${escapeHtml(text)}</span></span>`;
+
 const partText = (part: VersePart) => (typeof part === "string" ? part : "text" in part ? part.text : undefined);
 
 /** Joins a line's text with AO Lab's spacing. `wrap` renders each part, such as escaping it for HTML. */
@@ -144,8 +160,8 @@ function joinParts(parts: readonly VersePart[], wrap: (part: VersePart, text: st
   for (const part of parts) {
     const text = partText(part);
     if (text === undefined) {
-      // Notes are not displayed, matching the YouVersion adapter.
       if (typeof part !== "string" && "heading" in part) joined += wrap(part, part.heading);
+      if (typeof part !== "string" && "noteId" in part) joined += `\uE000${part.noteId}\uE001`;
       continue;
     }
     const trimmed = text.trim();
@@ -183,6 +199,7 @@ export function createAOLabProvider() {
   const effects: BibleDisplayProvider = {
     id: "helloao",
     defaultVersionId: "BSB",
+    notes: true,
     clearCache: cache.clear,
     getVerseOfTheDay: Effect.fn("helloao.getVerseOfTheDay")(function*(date) {
       yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
@@ -232,15 +249,28 @@ export function createAOLabProvider() {
         else if (item.type === "verse") {
           const lines = verseLines(item.content);
           if ((first === undefined || (item.number >= first && item.number <= last!)) && lines.length) {
-            const verse = lines.map((line) => joinParts(line.parts)).join("\n");
-            if (text) text += paragraph ? "\n\n" : endsInPoetry || lines[0]!.poem !== undefined ? "\n" : separator(text, verse);
-            text += titles.map((title) => `${title}\n\n`).join("") + verse;
+            const verse = markVerse(lines.map((line) => joinParts(line.parts)).join("\n"), item.number);
+            if (text) text += paragraph ? "\n\n" : endsInPoetry || lines[0]!.poem !== undefined ? "\n" : separator(unmarked(text), unmarked(verse));
+            text += markVerse(titles.map((title) => `${title}\n\n`).join(""), item.number) + verse;
             endsInPoetry = lines.at(-1)!.poem !== undefined;
           }
           titles = [];
           paragraph = false;
         }
       }
+      // Take the note marks out of the text, keeping where each note belongs.
+      const footnotes = footnoteText(result.chapter.footnotes);
+      const marked = text.trim();
+      const notes: { passageId: string; offset: number; text: string }[] = [];
+      let plain = "";
+      let index = 0;
+      for (const match of marked.matchAll(NOTE_MARK)) {
+        plain += marked.slice(index, match.index);
+        index = match.index + match[0].length;
+        const note = footnotes.get(Number(match[1]));
+        if (note) notes.push({ passageId: `${book}.${chapter}.${match[2]}`, offset: plain.length, text: note });
+      }
+      plain += marked.slice(index);
       const translation = result.translation;
       return {
         provider: "helloao",
@@ -248,7 +278,8 @@ export function createAOLabProvider() {
         requestedPassageId: passageId,
         passageId,
         reference: `${result.book.name} ${chapter}${first === undefined ? "" : `:${first}${last !== first ? `-${last}` : ""}`}`,
-        text: text.trim(),
+        text: plain,
+        notes,
         version: {
           id: translation.id,
           title: translation.name,
@@ -290,12 +321,18 @@ export function createAOLabProvider() {
       // never includes the next section's heading. A paragraph break never leads the passage.
       let before = "";
       let html = "";
+      const footnotes = footnoteText(result.chapter.footnotes);
       for (const item of result.chapter.content) {
         if (item.type === "heading") before += `<h3 class="scripture-heading">${joinParts(item.content, partHtml)}</h3>`;
         else if (item.type === "hebrew_subtitle") before += `<p class="scripture-subtitle">${joinParts(item.content, partHtml)}</p>`;
         else if (item.type === "line_break") before += html ? `<div class="scripture-break"></div>` : "";
         else if (item.type === "verse") {
-          if (item.number >= first && item.number <= last) html += `${before}<span class="scripture-verse">${verseHtml(item.content, item.number)}</span> `;
+          if (item.number >= first && item.number <= last) {
+            html += `${before}<span class="scripture-verse">${verseHtml(item.content, item.number)}</span> `.replace(NOTE_MARK, (_, id) => {
+              const note = footnotes.get(Number(id));
+              return note ? noteHtml(`Note for ${result.book.name} ${range.chapter}:${item.number}`, note) : "";
+            });
+          }
           before = "";
         }
       }

@@ -110,11 +110,22 @@ it.effect("returns clean default-provider text and actionable RTL guidance witho
       { type: "line_break" },
       { type: "verse", number: 3, content: ["Last selected", { noteId: 2 }, "."] },
       { type: "verse", number: 4, content: ["Outside after"] },
-    ] },
+    ], footnotes: [{ noteId: 1, text: "First note" }, { noteId: 2, text: " Second note " }] },
   } as ApiTranslationBookChapter);
   const client = createScriptureClient();
   const passage = yield* client.getPassage({ passageId: "JHN.3.2-3" });
-  expect(passage.text).toBe("Word next\nPoetry\nSelah\nSecond line\nAfter poem. Jesus said, “Follow me.”\n\nLast selected.");
+  const text = "Word next\nPoetry\nSelah\nSecond line\nAfter poem. Jesus said, “Follow me.”\n\nLast selected.";
+  expect(passage.text).toBe(text);
+  // Notes are opt-in. With them, text is unchanged and each note sits after its word.
+  expect(passage).not.toHaveProperty("notes");
+  expect(client.capabilities.notes).toBe(true);
+  const noted = yield* client.getPassage({ passageId: "JHN.3.2-3", includeNotes: true });
+  expect(noted.text).toBe(text);
+  // noteId 3 has no footnote text, so it is left out rather than invented.
+  expect(noted.notes).toEqual([
+    { passageId: "JHN.3.2", offset: "Word".length, text: "First note" },
+    { passageId: "JHN.3.3", offset: text.indexOf("Last selected") + "Last selected".length, text: "Second note" },
+  ]);
   expect(passage).toMatchObject({ provider: "helloao", reference: "John 3:2-3", version: { id: "BSB", sourceLanguage: "heb" }, numbering: "unknown" });
   expect(passage.attribution.text).toBe("Copyright notice · Source: AO Lab Free Use Bible API");
   expect(passage.licenses).toEqual([{ url: "https://example.com/license" }]);

@@ -76,8 +76,8 @@ const STYLES = `
   color: inherit;
   ${ROOT_TOKENS}
 }
-.scripture-root { --scripture-muted: #666; --scripture-red: #a52424; }
-.scripture-root[data-theme="dark"] { --scripture-muted: #aaa; --scripture-red: #ff9090; }
+.scripture-root { --scripture-muted: #666; --scripture-red: #a52424; --scripture-note-bg: rgb(0 0 0 / 0.05); --scripture-popover-bg: #fff; --scripture-popover-fg: #1c1917; --scripture-popover-border: rgb(0 0 0 / 0.1); }
+.scripture-root[data-theme="dark"] { --scripture-muted: #aaa; --scripture-red: #ff9090; --scripture-note-bg: rgb(255 255 255 / 0.08); --scripture-popover-bg: #262423; --scripture-popover-fg: #f5f5f4; --scripture-popover-border: rgb(255 255 255 / 0.12); }
 .scripture-bible {
   font: var(--scripture-font-size, 20px)/var(--scripture-line-height, 1.625) var(--scripture-font-family, Georgia, serif);
   max-width: var(--scripture-max-width, 32rem);
@@ -98,6 +98,45 @@ const STYLES = `
   width: 2.3em; margin-inline: -2.3em -0.38em; padding-inline-end: 0.5em;
 }
 .scripture-bible .scripture-break { height: 0.625em; }
+/* Publisher footnotes show only with the notes attribute. Each note opens in a native popover,
+   which sits in the top layer, so the Scripture never moves and a card's edges never clip it.
+   user-select: none keeps notes out of copied Scripture. */
+.scripture-note { display: none; user-select: none; -webkit-user-select: none; }
+:host([notes]) .scripture-note { display: inline; }
+.scripture-note-button {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.1em; height: 1.1em; margin-inline: 0.1em; vertical-align: 0.35em; border-radius: 0.25em;
+  color: var(--scripture-muted); font-size: 0.75em;
+  transition: transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.scripture-note-button svg { width: 0.75em; height: 0.75em; }
+.scripture-note-button:active { transform: scale(0.9); }
+.scripture-note-button[aria-expanded="true"] { color: var(--scripture-red); background: var(--scripture-note-bg); }
+@media (hover: hover) { .scripture-note-button:hover { color: inherit; background: var(--scripture-note-bg); } }
+.scripture-note-button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.scripture-note-text {
+  position: fixed; inset: auto; margin: 0; box-sizing: border-box; max-width: min(20rem, calc(100vw - 16px));
+  padding: 0.6rem 0.8rem; border: 1px solid var(--scripture-popover-border); border-radius: 0.6rem;
+  background: var(--scripture-popover-bg); color: var(--scripture-popover-fg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px -6px rgb(0 0 0 / 0.2);
+  font: 14px/1.5 system-ui, sans-serif; white-space: normal; overflow-wrap: break-word; overflow: visible;
+  /* Grows out of the arrow tip, so the note visibly comes from its marker. */
+  transform-origin: var(--tip-x, 50%) var(--origin-y, 100%);
+  transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.23, 1, 0.32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete;
+}
+/* The arrow: a rotated square with the popover's background and two of its borders. */
+.scripture-note-text::before {
+  content: ""; position: absolute; left: calc(var(--tip-x, 50%) - 5px); width: 10px; height: 10px;
+  box-sizing: border-box; background: inherit; transform: rotate(45deg);
+}
+.scripture-note-text[data-side="above"]::before { bottom: -5.5px; border-right: inherit; border-bottom: inherit; }
+.scripture-note-text[data-side="below"]::before { top: -5.5px; border-left: inherit; border-top: inherit; }
+.scripture-note-text:not(:popover-open) { opacity: 0; transform: scale(0.97); transition-duration: 120ms; }
+@starting-style { .scripture-note-text:popover-open { opacity: 0; transform: scale(0.6); } }
+@media (prefers-reduced-motion: reduce) {
+  .scripture-note-text, .scripture-note-text:not(:popover-open) { transform: none; }
+  @starting-style { .scripture-note-text:popover-open { transform: none; } }
+}
 .scripture-bible .scripture-subtitle { margin: 0 0 0.5em; font-style: italic; color: var(--scripture-muted); }
 :host([verse-numbers="hide"]) .scripture-verse-number { display: none; }
 :host([red-letter="off"]) .scripture-jesus { color: inherit; }
@@ -191,12 +230,12 @@ const LAYOUTS: readonly ReferenceLayout[] = ["heading", "citation", "quote", "no
  * Displays Scripture with its required attribution. Works in the page or inside a shadow root.
  *
  * Attributes choose what shows: `reference`, `verse-numbers="hide"`, `red-letter="off"`,
- * `headings="hide"`, `direction`, and `theme`. CSS properties choose how it looks:
+ * `headings="hide"`, `notes`, `direction`, and `theme`. CSS properties choose how it looks:
  * `--scripture-font-size`, `--scripture-line-height`, `--scripture-font-family`, `--scripture-max-width`.
  * Parts: `text`, `citation`, `version`, `attribution`, `quote`, `loader`, `error`.
  */
 export class ScripturePassage extends HTMLElement {
-  // verse-numbers, red-letter, and headings are pure CSS, so they need no callback.
+  // verse-numbers, red-letter, headings, and notes are pure CSS, so they need no callback.
   static observedAttributes = ["provider", "bible-version-id", "yvp-public-app-key", "yvp-api-host", "yvp-bible-version-id", "passage-id", "theme", "reference", "direction"];
 
   private providerOverride?: BibleProvider;
@@ -227,6 +266,56 @@ export class ScripturePassage extends HTMLElement {
     style.textContent = STYLES;
     this.root.className = "scripture-root";
     shadow.append(style, this.root);
+    // The browser opens one auto popover at a time and closes it on Escape or an outside click.
+    // Escape closes only the note, not a card around the passage.
+    this.root.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.root.querySelector(".scripture-note-text:popover-open")) event.stopPropagation();
+    });
+  }
+
+  /** Positions an open note above its button, or below when there is no room, inside the viewport, with its arrow on the button. */
+  private placeNote(note: HTMLElement, button: HTMLElement): void {
+    const gap = 10, margin = 8;
+    const anchor = button.getBoundingClientRect();
+    // offset sizes ignore the grow transform, so a note measured mid-animation is placed at full size.
+    const width = note.offsetWidth, height = note.offsetHeight;
+    // Before the popover is shown it has no size; the next placement measures it.
+    if (!width) return;
+    const above = anchor.top - gap - margin >= height || anchor.top > innerHeight - anchor.bottom;
+    const left = Math.min(Math.max(margin, anchor.left + anchor.width / 2 - width / 2), innerWidth - margin - width);
+    note.style.left = `${left}px`;
+    note.style.top = above ? "" : `${anchor.bottom + gap}px`;
+    note.style.bottom = above ? `${innerHeight - anchor.top + gap}px` : "";
+    // Keep the arrow clear of the rounded corners when the note is pushed against a screen edge.
+    note.style.setProperty("--tip-x", `${Math.min(Math.max(14, anchor.left + anchor.width / 2 - left), width - 14)}px`);
+    note.style.setProperty("--origin-y", above ? "100%" : "0%");
+    note.dataset.side = above ? "above" : "below";
+  }
+
+  /** Links each note button to its popover and keeps it placed while it is open. */
+  private wireNotes(scripture: HTMLElement): void {
+    for (const note of scripture.querySelectorAll<HTMLElement>(".scripture-note")) {
+      const button = note.querySelector<HTMLButtonElement>(".scripture-note-button");
+      const text = note.querySelector<HTMLElement>(".scripture-note-text");
+      if (!button || !text || !("popover" in text)) continue;
+      text.popover = "auto";
+      button.popoverTargetElement = text;
+      let follow: AbortController | undefined;
+      // beforetoggle fires before the popover shows. A mouse click opens it after the microtask,
+      // so place again in the next frame, which still runs before the first paint.
+      text.addEventListener("beforetoggle", (event) => {
+        const open = (event as ToggleEvent).newState === "open";
+        button.setAttribute("aria-expanded", String(open));
+        follow?.abort();
+        if (!open) return;
+        follow = new AbortController();
+        const place = () => this.placeNote(text, button);
+        queueMicrotask(place);
+        requestAnimationFrame(place);
+        addEventListener("scroll", place, { capture: true, passive: true, signal: follow.signal });
+        addEventListener("resize", place, { passive: true, signal: follow.signal });
+      });
+    }
   }
 
   connectedCallback(): void {
@@ -327,6 +416,7 @@ export class ScripturePassage extends HTMLElement {
     const direction = this.getAttribute("direction");
     scripture.setAttribute("dir", direction === "ltr" || direction === "rtl" ? direction : display.direction ?? "auto");
     scripture.innerHTML = display.html;
+    this.wireNotes(scripture);
 
     // The citation carries the reference and version; the layout only moves it.
     const citation = el("p", "scripture-citation", "citation");

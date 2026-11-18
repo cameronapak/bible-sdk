@@ -10,7 +10,7 @@ export { createScriptureCard } from "./card";
 export { BIBLE_SDK_PASSAGE_INPUT_TAG, BIBLE_PASSAGE_INPUT_TAG, PASSAGE_INPUT_TAG, ScripturePassageInput, definePassageInput, type PassageInputDetail } from "./passage-input";
 export { BIBLE_SDK_VERSION_INPUT_TAG, BIBLE_VERSION_INPUT_TAG, VERSION_INPUT_TAG, ScriptureVersionInput, defineVersionInput, type VersionInputDetail } from "./version-input";
 export { BIBLE_SDK_PASSAGE_TAG, BIBLE_PASSAGE_TAG, SCRIPTURE_PASSAGE_TAG, ScripturePassage, defineScripturePassage, type ReferenceLayout } from "./scripture-passage";
-export { aoLabProvider, createAOLabProvider, helloaoProvider, createYouVersionProvider, listBibleVersions, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
+export { aoLabProvider, createAOLabProvider, helloaoProvider, createYouVersionProvider, listBibleVersions, noteHtml, type BibleProvider, type BibleVersion, type PassageDisplay, type ProviderOptions } from "./providers";
 
 export type Mode = "link" | "card";
 export type Trigger = "click" | "hover";
@@ -22,6 +22,8 @@ export type ScriptureInlineOptions = ProviderOptions & {
   trigger?: Trigger;
   /** Where a card shows the reference: "heading", "citation", "quote", or "none". Default: "heading". */
   reference?: ReferenceLayout;
+  /** Show publisher footnotes in cards behind a note button, as with the notes attribute. Default: false. */
+  notes?: boolean;
   /** Where to look for references. Default: the whole page, including a body that replaces it. */
   root?: Node;
   /** Keep linking references in content added later, such as pages swapped in by Turbo or a router. Default: true. */
@@ -59,6 +61,7 @@ export function scriptureInline({
   mode = "card",
   trigger = "click",
   reference = "heading",
+  notes = false,
   root,
   watch = true,
   ...providerOptions
@@ -99,7 +102,7 @@ export function scriptureInline({
     card?.closeIfDetached();
   });
   if (mode === "card") {
-    const opened = (card = createScriptureCard({ ...providerOptions, reference }));
+    const opened = (card = createScriptureCard({ ...providerOptions, reference, notes }));
     const refFrom = (event: Event) => (event.target as Element).closest?.(`a.${REF_CLASS}`) as HTMLAnchorElement | null;
 
     events.addEventListener("click", (event) => {

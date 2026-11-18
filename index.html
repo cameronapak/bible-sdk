@@ -434,6 +434,7 @@ scriptureInline({ provider });</textarea>
             <thead><tr><th scope="col">Passage field</th><th scope="col">Meaning</th></tr></thead>
             <tbody>
               <tr><td><code>text</code></td><td>Plain Scripture without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain; rich formatting does not.</td></tr>
+              <tr><td><code>notes</code></td><td>Only with <code>includeNotes: true</code>: publisher footnotes as <code>{ passageId, offset, text }</code>, where <code>offset</code> is the note's position in <code>text</code>. <code>capabilities.notes</code> says whether the provider supplies them; AO Lab does for now.</td></tr>
               <tr><td><code>provider</code>, <code>source</code></td><td>Provider ID, source version ID, and URL: the AO Lab or bible-api.com chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log.</td></tr>
               <tr><td><code>requestedPassageId</code>, <code>passageId</code>, <code>reference</code></td><td>Requested and resolved USFM IDs and a readable reference.</td></tr>
               <tr><td><code>version</code></td><td>ID, title, abbreviation, available language metadata, and the source language identifier.</td></tr>
@@ -613,6 +614,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><td><code>data-trigger</code><br /><code>trigger</code></td><td><code>click</code></td><td><code>hover</code> also opens cards on mouse hover.</td></tr>
             <tr><td><code>data-yvp-bible-version-id</code><br /><code>yvpBibleVersionId</code></td><td><code>3034</code></td><td>YouVersion-only alias. <code>bibleVersionId</code> takes precedence.</td></tr>
             <tr><td><code>data-reference</code><br /><code>reference</code></td><td><code>heading</code></td><td>The card's reference layout, as on <a href="#passage">bible-sdk-passage</a>.</td></tr>
+            <tr><td><code>data-notes</code><br /><code>notes</code></td><td>Off</td><td>Shows publisher footnotes in cards, as the <code>notes</code> attribute does on <a href="#passage">bible-sdk-passage</a>.</td></tr>
             <tr><td><code>root</code></td><td>Whole page</td><td>The element to look for references in. Leave it unset on sites that replace <code>&lt;body&gt;</code>.</td></tr>
             <tr><td><code>watch</code></td><td><code>true</code></td><td>Also links references in content added later, such as pages that Turbo swaps in. <code>false</code> scans once. Mark content that a framework like React renders with <code>data-scripture-inline-ignore</code>.</td></tr>
           </tbody>
@@ -644,6 +646,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <label><input type="checkbox" role="switch" data-attribute="verse-numbers" data-off="hide" checked />Verse numbers</label>
             <label><input type="checkbox" role="switch" data-attribute="red-letter" data-off="off" checked />Words of Jesus in red</label>
             <label><input type="checkbox" role="switch" data-attribute="headings" data-off="hide" checked />Headings</label>
+            <label><input type="checkbox" role="switch" data-attribute="notes" data-on="" />Footnotes</label>
           </div>
           <div class="auto-grid" style="--min-item-size: 12rem" id="type-controls">
             <div>
@@ -688,6 +691,7 @@ const passage = await Effect.runPromise(program);</textarea>
             <tr><td><code>reference</code></td><td><code>heading</code></td><td>Where the reference shows: <code>heading</code>, <code>citation</code>, <code>quote</code>, or <code>none</code>.</td></tr>
             <tr><td><code>verse-numbers</code></td><td>Shown</td><td><code>hide</code> removes verse numbers.</td></tr>
             <tr><td><code>headings</code></td><td>Shown</td><td><code>hide</code> removes section headings.</td></tr>
+            <tr><td><code>notes</code></td><td>Off</td><td>Shows publisher footnotes behind a note button that opens the note in a popover. Copied text never includes notes. AO Lab only for now.</td></tr>
             <tr><td><code>red-letter</code></td><td>Provider styling</td><td><code>on</code> colors marked words of Jesus red; <code>off</code> uses the text color. Omitted: red for AO Lab, YouVersion, and fetch.bible; official muted styling for API.Bible. Requires source markers.</td></tr>
             <tr><td><code>theme</code></td><td><code>light</code></td><td><code>light</code>, <code>dark</code>, or <code>auto</code> to follow the system.</td></tr>
             <tr><td><code>direction</code></td><td>From the passage</td><td><code>ltr</code> or <code>rtl</code>.</td></tr>
@@ -1011,9 +1015,9 @@ const english = versions.filter((version) => version.language === "en");</textar
           `  passage-id="${demo.getAttribute("passage-id")}"`,
           `  reference="${demo.getAttribute("reference")}"`,
           // Only what differs from the defaults.
-          ...["verse-numbers", "red-letter", "headings"]
+          ...["verse-numbers", "red-letter", "headings", "notes"]
             .filter((name) => demo.hasAttribute(name))
-            .map((name) => `  ${name}="${demo.getAttribute(name)}"`),
+            .map((name) => (demo.getAttribute(name) ? `  ${name}="${demo.getAttribute(name)}"` : `  ${name}`)),
           ...(demo.style.length ? [`  style="${demo.style.cssText}"`] : []),
           "></bible-sdk-passage>",
         ]);
@@ -1027,7 +1031,9 @@ const english = versions.filter((version) => version.language === "en");</textar
       });
       // Switches set content attributes; an on switch removes its attribute, the default.
       document.getElementById("content-switches").addEventListener("change", ({ target }) => {
-        if (target.checked) demo.removeAttribute(target.dataset.attribute);
+        // Footnotes are off by default, so that switch sets its attribute when on.
+        if ("on" in target.dataset) target.checked ? demo.setAttribute(target.dataset.attribute, target.dataset.on) : demo.removeAttribute(target.dataset.attribute);
+        else if (target.checked) demo.removeAttribute(target.dataset.attribute);
         else demo.setAttribute(target.dataset.attribute, target.dataset.off);
         showPassageCode();
       });
