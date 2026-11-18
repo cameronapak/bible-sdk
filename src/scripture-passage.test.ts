@@ -25,17 +25,20 @@ function nextEvent(element: HTMLElement, name = "scripture-load"): Promise<Custo
   return new Promise((resolve) => element.addEventListener(name, (event) => resolve(event as CustomEvent), { once: true }));
 }
 
-it("renders Bible API extract limits and CC source rights outside unchanged verse text", async () => {
+it("renders Bible API credits without SDK commentary and preserves verse boundaries with numbers hidden", async () => {
   const text = "“Primera línea.”\nSegunda: e\u0301 & <literal>.";
   const license = "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); © Invented rights holder";
   vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
     translation: { identifier: "vbl", name: "Invented Spanish fixture", language: "Spanish", language_code: "spa", license },
-    verses: [{ book_id: "PSA", book: "Salmos", chapter: 23, verse: 1, text }],
+    verses: [
+      { book_id: "PSA", book: "Salmos", chapter: 23, verse: 1, text },
+      { book_id: "PSA", book: "Salmos", chapter: 23, verse: 2, text: "Otra línea distinta." },
+    ],
   }));
   const passage = document.createElement("bible-sdk-passage");
   passage.bibleProvider = createBibleApiProvider();
   passage.setAttribute("bible-version-id", "vbl");
-  passage.setAttribute("passage-id", "PSA.23.1");
+  passage.setAttribute("passage-id", "PSA.23.1-2");
   const loaded = nextEvent(passage);
   document.body.append(passage);
   await loaded;
@@ -45,7 +48,12 @@ it("renders Bible API extract limits and CC source rights outside unchanged vers
   expect(root.querySelector('[part="text"]')?.textContent).not.toContain("Plain-text extract:");
   const attribution = root.querySelector('[part="attribution"]')!;
   expect(attribution.textContent).toContain(license);
-  expect(attribution.textContent).toContain("Psalm superscriptions");
+  expect(attribution.textContent).not.toContain("Psalm superscriptions");
+  expect(root.querySelector('[part="text"] br')).not.toBeNull();
+  passage.setAttribute("verse-numbers", "hide");
+  expect(root.querySelector('[part="text"] br')).not.toBeNull();
+  expect(root.querySelector('[part="text"]')?.textContent).toContain(text);
+  expect(root.querySelector('[part="text"]')?.textContent).toContain("Otra línea distinta.");
   expect([...attribution.querySelectorAll("a")].map(a => a.href)).toEqual([
     "https://creativecommons.org/licenses/by-sa/4.0/",
     "https://github.com/seven1m/open-bibles#translation-details",

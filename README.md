@@ -375,7 +375,7 @@ Set `usage.commercial` to your application's actual use before discovery. The ex
 
 ### bible-api.com: key-free or self-hosted
 
-**Source builds only until the next package release.** The published npm package and CDN scripts at 0.10.2 do not include this adapter. The examples below describe the source implementation; do not use its provider import with 0.10.2. Other published providers and the pinned CDN examples remain usable.
+Available in `@faith-tools/bible-sdk` 0.11.0 and later.
 
 ```ts
 import { createScriptureClient } from "@faith-tools/bible-sdk/data";
@@ -403,9 +403,13 @@ Individual passage and translation-picker elements also accept `element.biblePro
 
 **Plain-text extract:** this service does not supply the publisher's full text/layout. Psalm superscriptions, headings, notes, translator emphasis, poetry structure and red-letter markers may be missing. Verse-number controls cannot recover missing content.
 
-The adapter preserves received Unicode, punctuation and internal line breaks and adds one line break between verses in data and escaped display HTML. This is SDK verse-per-line formatting, not restored publisher layout. A visible source-format notice sits below Scripture and is also in attribution and the `bible-api-source` instruction for data/agent consumers. Preserve it when rendering.
+The adapter preserves received Unicode, punctuation and internal line breaks and adds one line break between verses in data and escaped display HTML. This is SDK verse-per-line formatting, not restored publisher layout. The `bible-api-source` instruction describes these limits for developers; components do not append that SDK guidance to edition attribution. This separation does not restore missing Scripture or structure.
+
+If you need superscriptions and poetry, explicitly select a richer provider and its edition. The existing fetch.bible adapter returns Psalm superscriptions and native poetry HTML for `eng_web` (World English Bible Classic) and `eng_kjv` (KJV 1769). Those are separate sources/revisions, not drop-in repairs for `web` or `kjv`; WEB punctuation differs. Availability is book-specific: fetch.bible lists `spa_vbl`, but its catalog currently has no Psalms for that edition. Staying with bible-api.com requires an upstream structured-content/importer change and database reimport, or a separately identified XML integration. Changing CSS or self-hosting the unchanged importer cannot recover discarded material.
 
 **Source rights:** keep the exact returned creator/copyright/license notices. CC editions visibly link both the license and [imported source/rights notices](https://github.com/seven1m/open-bibles#translation-details). Newer publisher revisions do not silently replace an older import's text or rights. A Public Domain label is the source's assertion, not a worldwide rights guarantee; unknown license wording is not unrestricted permission.
+
+Edition titles and rights notices retain the source's wording and language. For example, the Korean catalog supplies `Korean Revised Version (1952/1961)` and `Public Domain` in English. The SDK does not automatically translate them or its own labels/guidance. Localized SDK presentation and official source notices are separate concerns; preserve the supplied rights text when adding a translation.
 
 [ADR 0001](https://github.com/cameronapak/bible-sdk/blob/main/docs/decisions/0001-bible-api-plain-text.md) records the evidence, alternatives and limits. No headings, poetry or Hebrew word boundaries are inferred, and no other provider is fetched to fill gaps.
 

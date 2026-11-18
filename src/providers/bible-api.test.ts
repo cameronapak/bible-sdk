@@ -78,7 +78,37 @@ it("keeps received Unicode, punctuation and whitespace verbatim within verse-per
   const display = await provider.getPassage("web", "PSA.23.1-2");
   expect(display.html).toContain("“LORD,”\r\n\u00a0e\u0301 / &lt;literal&gt; &amp; words.\n");
   expect(display.html).toContain(second);
-  expect(display.attribution).toContain("Plain-text extract:");
+  expect(display.attribution).not.toContain("Plain-text extract:");
+  expect(display.instructions).toContainEqual(expect.objectContaining({ code: "bible-api-source", text: expect.stringContaining("Plain-text extract:") }));
+});
+
+// Bounded live responses checked 2026-11-16. These editions have deliberately
+// different internal whitespace and rights; do not infer or borrow missing titles.
+it.each([
+  { item: web, book: "Psalms", chapter: 23, texts: ["Yahweh is my shepherd:\nI shall lack nothing.", "He makes me lie down in green pastures.\nHe leads me beside still waters."] },
+  { item: { identifier: "vbl", name: "Versión Biblia Libre / Spanish Free Bible Version", language: "Spanish", language_code: "spa", license: "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); © 2018–2020 Jonathan Gallagher y Shelly Barrios de Avila" }, book: "Salmos", chapter: 23, texts: ["El Señor es mi pastor, y por ello tengo todo lo que necesito.", "Me da descanso en verdes pastos. Me guía a corrientes tranquilas."] },
+  { item: { ...web, identifier: "kjv", name: "King James Version" }, book: "Psalms", chapter: 3, texts: ["LORD, how are they increased that trouble me! many\nare they that rise up against me.", "Many\nthere be which say of my soul,\nThere is no help for him in God. Selah."] },
+  { item: { identifier: "korean", name: "Korean Revised Version (1952/1961)", language: "Korean", language_code: "kor", license: "Public Domain" }, book: "요한 복음", chapter: 3, texts: ["바리새인 중에 니고데모라 하는 사람이 있으니 유대인의 관원이라", "그가 밤에 예수께 와서 가로되 랍비여 우리가 당신은 하나님께로서 오신 선생인 줄 아나이다 하나님이 함께 하시지 아니하시면 당신의 행하시는 이 표적을 아무라도 할 수 없음이니이다"] },
+])("separates $item.identifier source credits from SDK guidance without changing Scripture", async ({ item, book, chapter, texts }) => {
+  const { transport, client, native, provider } = setup();
+  const bookId = item.identifier === "korean" ? "JHN" : "PSA";
+  const passageId = `${bookId}.${chapter}.1-2`;
+  transport.mockResolvedValue(Response.json({ translation: item, verses: texts.map((text, index) => ({ book_id: bookId, book, chapter, verse: index + 1, text })) }));
+  const data = await client.getPassage({ versionId: item.identifier, passageId });
+  expect(data.text).toBe(texts[0] + "\n" + texts[1]);
+  expect(data.source.versionId).toBe(item.identifier);
+  expect(data.version.title).toBe(item.name);
+  expect(data.attribution.text).toBe(`${item.name}. ${item.license} · Source: Bible API`);
+  expect(data.licenses[0].name).toBe(item.license);
+  expect(data.instructions).toContainEqual(expect.objectContaining({ code: "bible-api-source", level: "notice", text: expect.stringContaining("Psalm superscriptions") }));
+  expect(data.instructions.find(({ code }) => code === "bible-api-source")?.text).not.toContain("Preserve the visible source-format notice");
+  expect(await Effect.runPromise(native.getPassage({ versionId: item.identifier, passageId }))).toEqual(data);
+  const display = await provider.getPassage(item.identifier, passageId);
+  expect(display.attribution).toBe(data.attribution.text);
+  expect(display.attributionHtml).toContain(item.name);
+  expect(display.attributionHtml).toContain(item.license);
+  expect(display.attributionHtml).not.toContain("Plain-text extract:");
+  expect(display.instructions).toEqual(data.instructions);
 });
 
 it("keeps edition-specific rights and Hebrew warnings outside unaltered Scripture", async () => {
