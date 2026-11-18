@@ -1,5 +1,11 @@
 # @faith-tools/bible-sdk
 
+## 0.12.1
+
+### Patch Changes
+
+- a34ac10: Separate bible-api.com source-format guidance from edition attribution. Keep limitations in structured instructions and documentation while preserving received Scripture, edition rights/source links and the specific Hebrew source warning. This does not recover material omitted upstream.
+
 ## 0.12.0
 
 ### Minor Changes
