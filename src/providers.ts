@@ -3,6 +3,7 @@ import { Clock, Duration, Effect, Schema } from "effect";
 import { BibleVersion, CalendarDate, ScriptureError, type BibleDisplayProvider, type ScripturePassage } from "./data-types.js";
 import { attributionLink, bookId, escapeHtml, passageRange, providerCache, requestCache, SourceLanguage, textInstructions, validateVerses } from "./data-helpers.js";
 import { decodeResponse, request, withPromises } from "./runtime.js";
+import { formatPassageForDisplay, tryParsePassage } from "grab-bcv";
 
 export type { BibleVersion } from "./data-types.js";
 
@@ -79,7 +80,7 @@ const helloaoChapter = decodeResponse(Schema.Struct({
     license: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.String])))),
   }),
   book: Schema.Struct({ name: Schema.String }),
-  chapter: Schema.Struct({ content: chapterContent }),
+  chapter: Schema.Struct({ content: chapterContent, footnotes: Schema.optional(Schema.Array(Schema.Struct({ noteId: Schema.Number, text: Schema.String }))) }),
 }));
 const youversionList = <S extends Schema.Constraint & { DecodingServices: never }>(item: S) => decodeResponse(Schema.Struct({ data: Schema.Array(item) }));
 
@@ -135,6 +136,96 @@ function separator(before: string, after: string): string {
   return unspacedScript.test(before.at(-1)!) || unspacedScript.test(after[0]!) ? "" : " ";
 }
 
+// joinParts marks each footnote's place with its noteId; a selected verse adds its number.
+const NOTE_MARK = /\uE000(\d+)(?:\.(\d+))?\uE001/g;
+const unmarked = (text: string) => text.replace(NOTE_MARK, "");
+const markVerse = (text: string, verse: number) => text.replace(NOTE_MARK, (_, id) => `\uE000${id}.${verse}\uE001`);
+const footnoteText = (footnotes: readonly { noteId: number; text: string }[] = []) => new Map(footnotes.map((note) => [note.noteId, note.text.trim()]));
+
+// Lucide "asterisk" (ISC). An SVG, not a text "*", so it renders the same in every script and font.
+const NOTE_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m18.065 8.496-12.125 7"/><path d="m5.94 8.504 12.125 7"/></svg>';
+
+/**
+ * A publisher footnote: a button that opens its note in a popover. Components show it unless
+ * `notes="hide"` is set. Custom display providers can emit this markup for their own notes.
+ */
+export const noteHtml = (label: string, text: string) =>
+  `<span class="scripture-note"><button type="button" class="scripture-note-button" aria-expanded="false" aria-label="${escapeHtml(label)}">${NOTE_ICON}</button><span class="scripture-note-text" role="note">${escapeHtml(text)}</span></span>`;
+
+// Named entities that appear in Bible HTML. An unknown entity stays as written, so the
+// Scripture comparison below fails and the note is left out rather than misplaced.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0", rsquo: "\u2019", lsquo: "\u2018", rdquo: "\u201d", ldquo: "\u201c",
+  mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", thinsp: "\u2009", ensp: "\u2002", emsp: "\u2003", zwj: "\u200d", zwnj: "\u200c", lrm: "\u200e", rlm: "\u200f",
+};
+const decodeEntities = (text: string) => text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+  if (code[0] !== "#") return NAMED_ENTITIES[code.toLowerCase()] ?? entity;
+  const point = code[1]!.toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+  return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+});
+const isVoidTag = (tag: string) => /^<(br|hr|img|wbr)\b/i.test(tag) || tag.endsWith("/>");
+const attribute = (tag: string, name: string) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"))?.slice(1).find((value) => value !== undefined);
+const classesOf = (tag: string) => attribute(tag, "class")?.split(/\s+/) ?? [];
+const withoutSpace = (text: string) => text.replace(/\s/g, "");
+
+/** A YouVersion note's text, without its "3:16" reference, as plain text. */
+function noteText(html: string): string {
+  let text = "";
+  const open: string[][] = [];
+  for (const token of html.split(/(<[^>]*>)/)) {
+    if (!token) continue;
+    if (token.startsWith("</")) open.pop();
+    else if (token.startsWith("<")) { if (!isVoidTag(token)) open.push(classesOf(token)); }
+    else if (!open.some((classes) => classes.includes("fr"))) text += decodeEntities(token);
+  }
+  return text.replace(/\s+/g, " ").replace(/ ([,.;:!?])/g, "$1").trim();
+}
+
+/**
+ * Finds each footnote in YouVersion's untransformed passage HTML and places it in the plain
+ * text by counting the Scripture characters before it, ignoring whitespace. Verse labels and
+ * cross references are not Scripture. If the HTML and text disagree, no note is placed.
+ */
+function youversionNotes(html: string, text: string, book: string, chapter: number) {
+  const found: { verse: number; before: number; html: string }[] = [];
+  const open: string[][] = [];
+  let verse = 0, depth = 0;
+  // The Scripture the HTML contains, without whitespace. A note's position is its length so far.
+  let scripture = "";
+  let note: { verse: number; before: number; html: string; keep: boolean } | undefined;
+  for (const token of html.split(/(<[^>]*>)/)) {
+    if (!token) continue;
+    if (note) {
+      if (token.startsWith("</")) depth -= 1;
+      else if (token.startsWith("<") && !isVoidTag(token)) depth += 1;
+      if (depth > 0) note.html += token;
+      else {
+        if (note.keep) found.push(note);
+        note = undefined;
+      }
+    } else if (token.startsWith("</")) open.pop();
+    else if (token.startsWith("<")) {
+      if (isVoidTag(token)) continue;
+      const classes = classesOf(token);
+      const number = attribute(token, "v");
+      if (classes.includes("yv-v") && number && /^\d+$/.test(number)) verse = Number(number);
+      if (classes.includes("yv-n")) {
+        note = { verse, before: scripture.length, html: "", keep: classes.includes("f") };
+        depth = 1;
+      } else open.push(classes);
+    } else if (!open.some((classes) => classes.includes("yv-vlbl"))) scripture += withoutSpace(decodeEntities(token));
+  }
+  // Place notes only when the HTML holds exactly the plain text's Scripture, character for character.
+  if (scripture !== withoutSpace(text)) return [];
+  return found.flatMap((note) => {
+    const content = noteText(note.html);
+    if (!content || !note.verse) return [];
+    let offset = 0;
+    for (let seen = 0; seen < note.before && offset < text.length; offset += 1) if (!/\s/.test(text[offset]!)) seen += 1;
+    return [{ passageId: `${book}.${chapter}.${note.verse}`, offset, text: content }];
+  });
+}
+
 const partText = (part: VersePart) => (typeof part === "string" ? part : "text" in part ? part.text : undefined);
 
 /** Joins a line's text with AO Lab's spacing. `wrap` renders each part, such as escaping it for HTML. */
@@ -144,8 +235,8 @@ function joinParts(parts: readonly VersePart[], wrap: (part: VersePart, text: st
   for (const part of parts) {
     const text = partText(part);
     if (text === undefined) {
-      // Notes are not displayed, matching the YouVersion adapter.
       if (typeof part !== "string" && "heading" in part) joined += wrap(part, part.heading);
+      if (typeof part !== "string" && "noteId" in part) joined += `\uE000${part.noteId}\uE001`;
       continue;
     }
     const trimmed = text.trim();
@@ -183,6 +274,7 @@ export function createAOLabProvider() {
   const effects: BibleDisplayProvider = {
     id: "helloao",
     defaultVersionId: "BSB",
+    notes: true,
     clearCache: cache.clear,
     getVerseOfTheDay: Effect.fn("helloao.getVerseOfTheDay")(function*(date) {
       yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
@@ -232,15 +324,28 @@ export function createAOLabProvider() {
         else if (item.type === "verse") {
           const lines = verseLines(item.content);
           if ((first === undefined || (item.number >= first && item.number <= last!)) && lines.length) {
-            const verse = lines.map((line) => joinParts(line.parts)).join("\n");
-            if (text) text += paragraph ? "\n\n" : endsInPoetry || lines[0]!.poem !== undefined ? "\n" : separator(text, verse);
-            text += titles.map((title) => `${title}\n\n`).join("") + verse;
+            const verse = markVerse(lines.map((line) => joinParts(line.parts)).join("\n"), item.number);
+            if (text) text += paragraph ? "\n\n" : endsInPoetry || lines[0]!.poem !== undefined ? "\n" : separator(unmarked(text), unmarked(verse));
+            text += markVerse(titles.map((title) => `${title}\n\n`).join(""), item.number) + verse;
             endsInPoetry = lines.at(-1)!.poem !== undefined;
           }
           titles = [];
           paragraph = false;
         }
       }
+      // Take the note marks out of the text, keeping where each note belongs.
+      const footnotes = footnoteText(result.chapter.footnotes);
+      const marked = text.trim();
+      const notes: { passageId: string; offset: number; text: string }[] = [];
+      let plain = "";
+      let index = 0;
+      for (const match of marked.matchAll(NOTE_MARK)) {
+        plain += marked.slice(index, match.index);
+        index = match.index + match[0].length;
+        const note = footnotes.get(Number(match[1]));
+        if (note) notes.push({ passageId: `${book}.${chapter}.${match[2]}`, offset: plain.length, text: note });
+      }
+      plain += marked.slice(index);
       const translation = result.translation;
       return {
         provider: "helloao",
@@ -248,7 +353,8 @@ export function createAOLabProvider() {
         requestedPassageId: passageId,
         passageId,
         reference: `${result.book.name} ${chapter}${first === undefined ? "" : `:${first}${last !== first ? `-${last}` : ""}`}`,
-        text: text.trim(),
+        text: plain,
+        notes,
         version: {
           id: translation.id,
           title: translation.name,
@@ -290,12 +396,18 @@ export function createAOLabProvider() {
       // never includes the next section's heading. A paragraph break never leads the passage.
       let before = "";
       let html = "";
+      const footnotes = footnoteText(result.chapter.footnotes);
       for (const item of result.chapter.content) {
         if (item.type === "heading") before += `<h3 class="scripture-heading">${joinParts(item.content, partHtml)}</h3>`;
         else if (item.type === "hebrew_subtitle") before += `<p class="scripture-subtitle">${joinParts(item.content, partHtml)}</p>`;
         else if (item.type === "line_break") before += html ? `<div class="scripture-break"></div>` : "";
         else if (item.type === "verse") {
-          if (item.number >= first && item.number <= last) html += `${before}<span class="scripture-verse">${verseHtml(item.content, item.number)}</span> `;
+          if (item.number >= first && item.number <= last) {
+            html += `${before}<span class="scripture-verse">${verseHtml(item.content, item.number)}</span> `.replace(NOTE_MARK, (_, id) => {
+              const note = footnotes.get(Number(id));
+              return note ? noteHtml(`Note for ${result.book.name} ${range.chapter}:${item.number}`, note) : "";
+            });
+          }
           before = "";
         }
       }
@@ -335,6 +447,7 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
     id: "youversion",
     defaultVersionId: "3034",
     cacheTimeToLive: Duration.zero,
+    notes: true,
     clearCache: Effect.void,
     getVerseOfTheDay: Effect.fn("youversion.getVerseOfTheDay")(function*(date) {
       yield* Schema.decodeUnknownEffect(CalendarDate)(date).pipe(Effect.mapError((cause) => new ScriptureError({ code: "invalid_reference", message: "Use a valid YYYY-MM-DD calendar date.", cause })));
@@ -359,25 +472,31 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
       const chapters = yield* request("youversion.chapters", () => sdk.getChapters(client, Number(versionId), book)).pipe(Effect.tap(youversionList(Schema.Struct({ id: Schema.String, passage_id: Schema.String }))));
       return chapters.data.map((chapter) => ({ number: Number(chapter.id), passageId: chapter.passage_id }));
     }),
-    getPassageData: Effect.fn("youversion.getPassageData")(function*(versionId, passageId) {
+    getPassageData: Effect.fn("youversion.getPassageData")(function*(versionId, passageId, options) {
       const { book, chapter, first, last } = yield* passageRange(passageId);
       const { sdk, client } = yield* connection(versionId);
       const verses = yield* request("youversion.verses", () => sdk.getVerses(client, Number(versionId), book, chapter)).pipe(Effect.tap(youversionList(Schema.Struct({ id: Schema.String }))));
       yield* validateVerses(verses.data.map((verse) => Number(verse.id)), first, last);
-      const [passage, version] = yield* Effect.all([
-        request("youversion.text", () => sdk.getPassage(client, Number(versionId), passageId, "text", false, false)).pipe(Effect.tap(decodeResponse(Schema.Struct({ id: Schema.String, reference: Schema.String, content: Schema.String })))),
+      const content = decodeResponse(Schema.Struct({ id: Schema.String, reference: Schema.String, content: Schema.String }));
+      const [passage, version, noted] = yield* Effect.all([
+        request("youversion.text", () => sdk.getPassage(client, Number(versionId), passageId, "text", false, false)).pipe(Effect.tap(content)),
         request("youversion.version", () => sdk.getVersion(client, Number(versionId))).pipe(Effect.tap(decodeResponse(Schema.Struct({
           id: Schema.Number, localized_title: Schema.String, localized_abbreviation: Schema.String, language_tag: SourceLanguage,
           copyright: Schema.optional(Schema.NullOr(Schema.String)),
           promotional_content: Schema.optional(Schema.NullOr(Schema.String)),
           publisher_url: Schema.optional(Schema.NullOr(Schema.String)),
         })))),
-      ], { concurrency: 2 });
+        // Notes need YouVersion's HTML, which marks where each one sits. Only requested when asked.
+        options?.includeNotes
+          ? request("youversion.notes", () => sdk.getPassage(client, Number(versionId), passageId, "html", false, true, false)).pipe(Effect.tap(content))
+          : Effect.succeed(undefined),
+      ], { concurrency: 3 });
       const attribution = sdk.getPassageAttribution(version);
       if (!attribution) return yield* new ScriptureError({ code: "unavailable", message: "This Bible version has no display attribution." });
       return {
         provider: "youversion", source: { url: `https://${yvpApiHost || "api.youversion.com"}/v1`, versionId },
         requestedPassageId: passageId, passageId: passage.id, reference: passage.reference, text: passage.content,
+        ...(noted ? { notes: youversionNotes(noted.content, passage.content, book, chapter) } : {}),
         version: { id: String(version.id), title: version.localized_title, abbreviation: version.localized_abbreviation, language: version.language_tag, sourceLanguage: version.language_tag },
         attribution: { text: `${attribution.text} · Source: YouVersion Platform`, urls: [version.publisher_url, "https://developers.youversion.com/"].filter((url): url is string => !!url) },
         licenses: [], numbering: "unknown",
@@ -420,10 +539,19 @@ export function createYouVersionProvider({ yvpPublicAppKey, yvpApiHost }: Pick<P
       yield* passageRange(passageId);
       const { sdk: { getPassageDisplay }, client } = yield* connection(versionId);
       const display = yield* request("youversion.html", () => getPassageDisplay(client, {
-        versionId: Number(versionId), passageId, includeHeadings: true, includeNotes: false,
+        versionId: Number(versionId), passageId, includeHeadings: true, includeNotes: true,
       }));
+      // YouVersion marks each footnote with an empty span; show it with the shared note button.
+      const { book, chapter } = yield* passageRange(passageId);
+      const html = display.html.replace(/<span\b[^>]*\bdata-verse-footnote="([^"]*)"[^>]*\bdata-verse-footnote-content="([^"]*)"[^>]*><\/span>/g, (_, key: string, content: string) => {
+        const text = noteText(decodeEntities(content));
+        if (!text) return "";
+        const parsed = tryParsePassage(`${book}.${chapter}${/^\d+$/.test(key) ? `.${key}` : ""}`);
+        return noteHtml(`Note for ${parsed.ok ? formatPassageForDisplay(parsed.value) : `${book} ${chapter}`}`, text);
+      });
       return {
         ...display,
+        html,
         version: { id: String(display.version.id), abbreviation: display.version.localized_abbreviation, title: display.version.localized_title },
         attribution: `${display.attribution.text} · Source: YouVersion Platform`,
         attributionHtml: `${escapeHtml(display.attribution.text)} · Source: ${attributionLink("YouVersion Platform", "https://developers.youversion.com/")}`,

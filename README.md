@@ -150,6 +150,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | `data-trigger` / `trigger` | `click` | `hover` also opens cards on mouse hover. |
 | `data-yvp-bible-version-id` / `yvpBibleVersionId` | `3034` | YouVersion-only alias. `bibleVersionId` takes precedence. |
 | `data-reference` / `reference` | `heading` | The card's reference layout, as on `<bible-sdk-passage>`. |
+| `data-notes` / `notes` | Shown | `hide` (or `false` in JavaScript) removes publisher footnotes from cards, as `notes="hide"` does on `<bible-sdk-passage>`. |
 | `root` | Whole page | The element to look for references in. Leave it unset on sites that replace `<body>`. JavaScript only. |
 | `watch` | `true` | Also links references in content added later, such as pages that Turbo swaps in. `false` scans once. JavaScript only. |
 
@@ -168,6 +169,7 @@ The reference finder skips `code`, `pre`, links, form fields, and elements marke
 | `reference` | `heading` | Where the reference shows: `heading`, `citation`, `quote`, or `none`. |
 | `verse-numbers` | Shown | `hide` removes verse numbers. |
 | `headings` | Shown | `hide` removes section headings. |
+| `notes` | Shown | `hide` removes publisher footnotes. Each note is an asterisk button that opens the note in a popover. Copied text never includes notes. AO Lab and YouVersion supply notes. |
 | `red-letter` | Provider styling | `on` colors marked words of Jesus red; `off` uses the text color. Omitted: red for AO Lab, YouVersion, and fetch.bible; official muted styling for API.Bible. Requires source markers. |
 | `theme` | `light` | `light`, `dark`, or `auto` to follow the system. |
 | `direction` | From the passage | `ltr` or `rtl`. |
@@ -611,6 +613,7 @@ Running `getPassage()` produces a Schema-validated, serializable `ScripturePassa
 | Field | Meaning |
 | --- | --- |
 | `text` | Plain Scripture, without verse numbers, editorial headings, notes, or attribution. Meaningful breaks and wording remain. This is not a rich-text or lossless source model. |
+| `notes` | Only with `includeNotes: true`: publisher footnotes as `{ passageId, offset, text }`, where `offset` is the note's position in `text`. `capabilities.notes` says whether the provider supplies them; AO Lab and YouVersion do. Custom display providers can render notes with the exported `noteHtml(label, text)`. |
 | `provider`, `source` | Provider ID, source version ID, and source URL: the AO Lab or bible-api.com chapter endpoint, fetch.bible TXT book endpoint, YouVersion HTTPS API base, or API.Bible website. Not a complete request log. |
 | `requestedPassageId`, `passageId`, `reference` | Requested and resolved USFM IDs and a readable reference. |
 | `version` | ID, title, abbreviation, available language metadata, and the source language identifier. |

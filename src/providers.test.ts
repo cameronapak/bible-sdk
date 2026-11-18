@@ -29,7 +29,7 @@ function chapter() {
       { type: "verse", number: 3, content: [{ text: "A poem", poem: 2 }, { noteId: 2 }, { text: "continues", poem: 2 }, { lineBreak: true }, "Last selected"] },
       { type: "heading", content: ["Outside heading"] },
       { type: "verse", number: 4, content: ["Outside after"] },
-    ] },
+    ], footnotes: [{ noteId: 1, text: "<b>Or</b> unique" }] },
   } as ApiTranslationBookChapter);
 }
 
@@ -43,6 +43,14 @@ it("renders only the inclusive range, escaping text and preserving formatting, s
   const display = await provider.getPassage("test", "JHN.3.2-3");
   const section = document.createElement("section");
   section.innerHTML = display.html;
+  // The note button and its text are separate from Scripture, and the note text is escaped.
+  const note = section.querySelector(".scripture-note")!;
+  expect(note.previousSibling?.textContent?.trim()).toBe("One and only");
+  expect(note.querySelector("button")?.getAttribute("aria-label")).toBe("Note for John 3:2");
+  expect(note.querySelector("button")?.getAttribute("aria-expanded")).toBe("false");
+  expect(note.querySelector(".scripture-note-text")?.textContent).toBe("<b>Or</b> unique");
+  expect(note.querySelector("b")).toBeNull();
+  note.remove();
   expect(section.textContent).toContain("One and only Son <script>alert(1)</script>");
   expect(section.querySelector("script")).toBeNull();
   expect([...section.querySelectorAll("sup")].map((n) => n.textContent)).toEqual(["2", "3"]);

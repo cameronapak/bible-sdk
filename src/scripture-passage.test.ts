@@ -365,3 +365,21 @@ it("copies every token bible.css declares on :root, :host, with the same default
   );
   expect(BIBLE_TOKENS).toEqual(live);
 });
+
+it("renders publisher notes as labeled buttons outside the Scripture text", async () => {
+  const { noteHtml } = await import("./providers");
+  const passage = document.createElement("bible-sdk-passage");
+  passage.bibleProvider = { id: "notes", defaultVersionId: "notes", getPassage: async () => ({
+    html: `His one and only${noteHtml("Note for John 3:16", "Or unique")} Son`,
+    version: { id: "notes", title: "Notes", abbreviation: "N" }, attribution: "Owner",
+  }) };
+  passage.setAttribute("passage-id", "JHN.3.16");
+  const loaded = nextEvent(passage);
+  document.body.append(passage);
+  await loaded;
+  // jsdom has no popover API; the popover itself is verified in a browser.
+  const button = passage.shadowRoot!.querySelector<HTMLButtonElement>(".scripture-note-button")!;
+  expect(button.getAttribute("aria-label")).toBe("Note for John 3:16");
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  expect(passage.shadowRoot!.querySelector('[role="note"]')?.textContent).toBe("Or unique");
+});

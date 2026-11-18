@@ -31,6 +31,12 @@ export const ScripturePassage = Schema.Struct({
   passageId: Schema.NonEmptyString,
   reference: Schema.String,
   text: Schema.String,
+  /** Publisher footnotes, returned only with includeNotes. Each offset is where its note belongs in `text`. */
+  notes: Schema.optional(Schema.Array(Schema.Struct({
+    passageId: Schema.NonEmptyString,
+    offset: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    text: Schema.NonEmptyString,
+  }))),
   version: BibleVersion.mapFields((fields) => ({ ...fields, sourceLanguage: Schema.optional(Schema.String) })),
   attribution: Schema.Struct({ text: Schema.NonEmptyString, urls: Schema.Array(Schema.String) }),
   publisher: Schema.optional(Schema.Struct({
@@ -90,6 +96,13 @@ export const VerseOfTheDay = Schema.Struct({
 });
 export type VerseOfTheDay = typeof VerseOfTheDay.Type;
 
+export type GetPassageOptions = {
+  versionId?: string;
+  passageId: string;
+  /** Return the provider's publisher footnotes in `notes`. Default: false. */
+  includeNotes?: boolean;
+};
+
 export type VerseOfTheDayOptions = {
   versionId?: string;
   /** YYYY-MM-DD. Defaults to the runtime's local calendar date when executed. */
@@ -104,10 +117,13 @@ export interface BibleDataProvider {
   readonly defaultVersionId: string;
   /** Facade discovery/display reuse lifetime. Omitted preserves unbounded reuse. */
   readonly cacheTimeToLive?: Duration.Input;
+  /** True when getPassageData returns publisher footnotes in `notes`. */
+  readonly notes?: boolean;
   listVersions(): Effect.Effect<BibleVersion[], ScriptureError>;
   listBooks(versionId: string): Effect.Effect<BibleBook[], ScriptureError>;
   listChapters(versionId: string, bookId: string): Effect.Effect<BibleChapter[], ScriptureError>;
-  getPassageData(versionId: string, passageId: string): Effect.Effect<ScripturePassage, ScriptureError>;
+  /** Providers with `notes` return `notes` when `includeNotes` is set; others ignore the option. */
+  getPassageData(versionId: string, passageId: string, options?: { includeNotes?: boolean }): Effect.Effect<ScripturePassage, ScriptureError>;
   /** Optional native reference calendar. Text is always resolved through getPassageData. */
   getVerseOfTheDay?(date: string): Effect.Effect<DailyVerseReference, ScriptureError>;
   readonly clearCache: Effect.Effect<void>;
